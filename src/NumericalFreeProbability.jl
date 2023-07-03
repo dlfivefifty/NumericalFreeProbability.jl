@@ -1,5 +1,8 @@
 module NumericalFreeProbability
 
-greet() = print("Hello World!")
+using LinearAlgebra
+using ClassicalOrthogonalPolynomials
+
+include("SqrtMeasures.jl")
 
 end # module NumericalFreeProbability

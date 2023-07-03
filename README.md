@@ -1,2 +1,2 @@
 # NumericalFreeProbability.jl
- A Julia package for compute free convolutions
+ A Julia package for computing free convolutions
