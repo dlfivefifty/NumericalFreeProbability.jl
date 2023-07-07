@@ -5,8 +5,14 @@ export support_sqrt, recovermeasure_sqrt, freeaddition_sqrt
 # TODO: turn the measures into special types
 
 # Joukowski transform
-Jinv_p = z -> z - √(z - 1) * √(z + 1)
-J = w -> 1/2 * (w + 1/w)
+function Jinv_p(z)
+    z - √(z - 1) * √(z + 1)
+end
+
+function J(z)
+    1/2 * (z + 1/z)
+end
+
 function dJinv_p(z)
     if z == 1 || z == -1
         return Inf * -1 * z
@@ -24,13 +30,16 @@ function d2Jinv_p(z)
 end
 
 # Affine maps to transform support
-M_ab = (x,a,b) -> (a + b)/2 + (b - a) * x /2 # maps from (-1, 1) to (a, b)
-M_ab_inv = (y,a,b) -> (2*y - (a + b))/(b - a) # maps from (a, b) to (-1, 1)
-dM_ab_inv = (y,a,b) -> 2/(b - a)
+function M_ab(x,a,b)
+    (a + b)/2 + (b - a) * x /2 # maps from (-1, 1) to (a, b)
+end
 
-# function to generate chebyshev roots, transformed to any interval
-function chebyshevnodes(a,b,n)
-    [(a+b)/2 + (b-a)/2 * cos((2k-1)/2n * pi) for k = 1:n]
+function M_ab_inv(y,a,b)
+    (2*y - (a + b))/(b - a) # maps from (a, b) to (-1, 1)
+end
+
+function dM_ab_inv(y,a,b)
+    2/(b - a) # TODO: maybe get rid of this since its really just a constant.
 end
 
 # function to generate points on unit circle in complex plane
@@ -47,7 +56,7 @@ Parameters:
     z: Complex
         - Point at which G_μ is evaluated at.
 
-    ψ_k: 1 x n array, n ∈ ℕ ∪ {∞}
+    ψ_k: AbstractVector{Real}, n ∈ ℕ ∪ {∞}
         - Coefficients of expansion of ψ(x) in terms of Chebyshev U polynomials.
 
     a, b: Real, a < b
@@ -78,9 +87,9 @@ This is done using a Companion Matrix method.
 
 Parameters:
     z: Complex
-        - Point at which G_μ is evaluated at.
+        - Point at which G_μ⁻¹ is evaluated at.
 
-    ψ_k: 1 x n array, n ∈ ℕ ∪ {∞}
+    ψ_k: AbstractVector{Real}, n ∈ ℕ ∪ {∞}
         - Coefficients of expansion of ψ(x) in terms of Chebyshev U polynomials.
 
     a, b: Real, a < b
@@ -145,7 +154,7 @@ Parameters:
         - However, if m is too large then the expansion in terms of Chebyshev U polynomials will lead to large errors in the final output measure.
 """
 function pointcloud_sqrt(G_a, G_b, supp_c, InvG_b; m = 10)
-    d_M = vec(unitcirclenodes(m)*[x for x in chebyshevnodes(-1,1,2*m+1) if x > eps()]')
+    d_M = vec(unitcirclenodes(m)*[x for x in ChebyshevGrid{2}(2m+1)[1:m] if x > eps()]')
     z_μ_M = [M_ab(J(x), supp_c[1], supp_c[2]) for x in d_M if imag(x) >= eps()]
     y_M = [G_a(y) for y in z_μ_M]
     y_M = [y for y in y_M if length(InvG_b(y)) == 1] # filter out points which have multivalued inverses
@@ -196,7 +205,7 @@ Parameters:
     z: Complex
         - Point at which G_μ' is evaluated at.
 
-    ψ_k: 1 x n array, n ∈ ℕ ∪ {∞}
+    ψ_k: AbstractVector{Real}, n ∈ ℕ ∪ {∞}
         - Coefficients of expansion of ψ(x) in terms of Chebyshev U polynomials.
 
     a, b: Real, a < b
@@ -225,7 +234,7 @@ Parameters:
     z: Complex
         - Point at which G_μ'' is evaluated at.
 
-    ψ_k: 1 x n array, n ∈ ℕ ∪ {∞}
+    ψ_k: AbstractVector{Real}, n ∈ ℕ ∪ {∞}
         - Coefficients of expansion of ψ(x) in terms of Chebyshev U polynomials.
 
     a, b: Real, a < b
@@ -312,7 +321,7 @@ Compute the Free additive convolution of two square root decaying measures μ_a 
 each measure is individually supported on a compact interval.
 
 Parameters:
-    ψ_a_k, ψ_a_k: 1 x n array, n ∈ ℕ ∪ {∞}
+    ψ_a_k, ψ_a_k: AbstractVector{Real}, n ∈ ℕ ∪ {∞}
         - Coefficients of expansion of ψ(x) in terms of Chebyshev U polynomials for measures μ_a and μ_b.
 
     supp_a, supp_b: Tuple{Real}
@@ -336,7 +345,7 @@ Parameters:
     
 
 Returns
-    ψ_a_k: 1 x n array, n ∈ ℕ
+    ψ_a_k: AbstractVector{Real}, n ∈ ℕ
         - Coefficients of expansion of ψ(x) in terms of Chebyshev U polynomials for output measure.
     supp_c: Tuple{Real}
         - Support of the output measure.
