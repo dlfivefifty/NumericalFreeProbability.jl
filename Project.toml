@@ -5,6 +5,9 @@ version = "0.1.0"
 
 [deps]
 ClassicalOrthogonalPolynomials = "b30e2e7b-c4ee-47da-9d5f-2c5c27239acd"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+ClassicalOrthogonalPolynomials = "0.10"
