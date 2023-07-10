@@ -5,47 +5,33 @@ export support_sqrt, recovermeasure_sqrt, freeaddition_sqrt
 # TODO: turn the measures into special types
 
 # Joukowski transform
-function Jinv_p(z)
-    z - √(z - 1) * √(z + 1)
-end
+Jinv_p(z) = z - √(z - 1) * √(z + 1)
+J(z) = (z + 1/z)/2
 
-function J(z)
-    1/2 * (z + 1/z)
-end
 
-function dJinv_p(z)
+function dJinv_p(z::T) where T
     if z == 1 || z == -1
-        return Inf * -1 * z
+        return convert(T, Inf) * (-z)
     end
     w = √(z + 1)/√(z - 1)
     1 - w/2 - 1/(2*w)
 end
 
-function d2Jinv_p(z)
+function d2Jinv_p(z::T) where T
     if z == 1 || z == -1
-        return Inf * z
+        return convert(T, Inf) * z
     end
     w = √(z - 1)/√(z + 1)
-    -1/4 * ((w - 1/w)/(z-1) + (1/w - w)/(z+1))
+    -((w - 1/w)/(z-1) + (1/w - w)/(z+1))/4
 end
 
 # Affine maps to transform support
-function M_ab(x,a,b)
-    (a + b)/2 + (b - a) * x /2 # maps from (-1, 1) to (a, b)
-end
-
-function M_ab_inv(y,a,b)
-    (2*y - (a + b))/(b - a) # maps from (a, b) to (-1, 1)
-end
-
-function dM_ab_inv(y,a,b)
-    2/(b - a) # TODO: maybe get rid of this since its really just a constant.
-end
+M_ab(x,a,b) = (a + b)/2 + (b - a) * x /2 # maps from (-1, 1) to (a, b)
+M_ab_inv(y,a,b) = (2*y - (a + b))/(b - a) # maps from (a, b) to (-1, 1)
+dM_ab_inv(y,a,b) = 2/(b - a) # TODO: maybe get rid of this since its really just a constant.
 
 # function to generate points on unit circle in complex plane
-function unitcirclenodes(n)
-    [exp(pi * (-1 + 2/n * k)im) for k=0:n-1]
-end
+unitcirclenodes(T, n) = [exp(π * (convert(T, 2k)/n-1)im) for k=0:n-1]
 
 
 
@@ -77,7 +63,7 @@ function cauchytransform_sqrt(z, ψ_k, a, b; maxterms=20)
         ans += ψ_k[k] * w
         w *= w_0
     end
-    pi * ans
+    π * ans
 end
 
 
@@ -115,12 +101,12 @@ function invcauchytransform_sqrt(z, ψ_k, a, b; maxterms=20, tol=1+10^-6)
         n -= 1
     end
     P ./= P[n] # make monic
-    C = zeros(Complex, n, n)
+    C = zeros(typeof(z), n, n)
     for i=1:n-1
         C[i+1,i] = 1
         C[i+1,n] = -P[i]
     end
-    C[1, n] = z/(pi * ψ_k[n])
+    C[1, n] = z/(π * ψ_k[n])
     s = eigvals(C)
     if length(s) > 1
         s = [z for z in s if abs(z) < tol] # select the eigenvalues whos abs() < 1
@@ -156,7 +142,7 @@ Parameters:
 function pointcloud_sqrt(G_a, G_b, supp_c, InvG_b; m = 10)
     d_M = vec(unitcirclenodes(m)*[x for x in ChebyshevGrid{2}(2m+1)[1:m] if x > eps()]')
     z_μ_M = [M_ab(J(x), supp_c[1], supp_c[2]) for x in d_M if imag(x) >= eps()]
-    y_M = [G_a(y) for y in z_μ_M]
+    y_M = G_a.(z_μ_M)
     y_M = [y for y in y_M if length(InvG_b(y)) == 1] # filter out points which have multivalued inverses
     y_M = [y for y in y_M if isapprox(G_b(InvG_b(y)), y)] # filter out points which are not their own inverses.
     # TODO: Check if the last line is necessary, in all the cases I tested, it's not needed.
@@ -222,7 +208,7 @@ function dcauchytransform_sqrt(z, ψ_k, a, b; maxterms=20)
         ans += ψ_k[k] * w * k * dJinv_p(M_ab_inv(z, a, b)) * dM_ab_inv(z, a, b)
         w *= w_0
     end
-    pi * ans
+    π * ans
 end
 
 
@@ -253,7 +239,7 @@ function d2cauchytransform_sqrt(z, ψ_k, a, b; maxterms=20)
         ans += ψ_k[k] * k * ((k-1) * w/w_0 * dw^2 + w*d2w)
         w *= w_0
     end
-    pi * ans
+    π * ans
 end
 
 
@@ -312,7 +298,7 @@ function recovermeasure_sqrt(InvG_a, InvG_b, supp_c, y_m)
     f = [real.(y_m);imag.(y_m)]
     Q, R̂ = qr(V)
     Q̂ = Q[:,1:n]
-    R̂ \ Q̂'f ./ pi
+    R̂ \ Q̂'f ./ π
 end
 
 
