@@ -42,6 +42,6 @@ end
     M_b = PointMeasure([-2, -1, 1], [0.5, 0.25, 0.25])
     ψ_c_k_i, supp_c = freeaddition_sqrt_point([1/pi], (-2, 2), M_b)
 
-    @test isapprox(ψ_c_k_i[1][1], 0.2528455940316882; rtol=10^-6)
+    @test isapprox(ψ_c_k_i[1][1], 0.252847327133316; rtol=10^-6)
 end
     

@@ -75,53 +75,90 @@ function d2cauchytransform_point(z, pm::PointMeasure)
     2 * ans
 end
 
-function invcauchytransform_point(z, pm::PointMeasure; maxterms = 200, tol = 1, r=0.9, n = 200)
-    a, b = minimum(pm.λ), maximum(pm.λ)
-    g = θ -> cauchytransform_point(M_ab(J(r * exp(im * θ)), a, b), pm)
-    θ = range(0, 2π; length=2*n+2)[1:end-1]
-    fc = FFTW.fft(g.(θ))/(2*n+1)
-    g_k = fc[1:n+1]
 
-    n = min(n,maxterms)
-    P = g_k[1:n]
-    while abs(g_k[n]) < 10^-9
-        n -= 1
-    end
 
-    s = invertpolynomial(P[1:n], z)
-    s = [z for z in s if abs(z) < tol]
-    
-    x = M_ab.(J.(r .* s), a, b)
-    
-    number_of_atoms = length(pm.a)
-    for i=1:number_of_atoms-1
-        if length(x) >= number_of_atoms
-            return x
-        end
-        x = [x; invcauchytransform_point_real(z, pm, pm.λ[i], pm.λ[i+1]; maxterms, tol, r, n)]
+
+function invcauchytransform_point(z, M)
+    n = length(M.a)
+    P = -z .* productlinearfactors(M.λ)
+    for i=1:n
+        P += [M.a[i] * productlinearfactors([M.λ[1:i-1]; M.λ[i+1:end]]);0]
     end
-    x
+    if z == 0
+        P = P[1:end-1]
+    end
+    ans = invertpolynomial(P, 0)
+    if z == 0
+        ans = [Inf;ans]
+    elseif isa(z, Real) && (z > 0)
+        ans = [ans[end];ans[1:end-1]]
+    end
+    ans
 end
 
-# not exported
-function invcauchytransform_point_real(z, pm::PointMeasure, a, b; maxterms=200, tol=1, r=0.9, n=200)
-    g = θ -> cauchytransform_point(M_ab(H(r * exp(im * θ)), a, b), pm)
-    θ = range(0, 2π; length=2*n+2)[1:end-1]
-    fc = FFTW.fft(g.(θ))/(2*n+1)
-    g_k = fc[1:n+1]
-    n = min(n,maxterms)
-    P = g_k[1:n]
-    while abs(g_k[n]) < 10^-9
-        n -= 1
+function productlinearfactors(terms)
+    P = zeros(length(terms)+1)
+    P[1] = 1.0
+    for i in terms
+        P[2:end] = P[1:end-1]
+        P[1] = 0.0
+        P[1:end-1] += P[2:end] * -i
     end
-    s = invertpolynomial(P[1:n], z)
-    s = [z for z in s if abs(z) < tol]
-    if length(s) == 1
-        return M_ab.(H.(r .* s), a, b)[1]
-    else
-        return M_ab.(H.(r .* s), a, b)
-    end
+    P
 end
+
+
+# function invcauchytransform_point(z, pm::PointMeasure; maxterms = 200, tol = 1, r=0.9, n = 200)
+#     a, b = minimum(pm.λ), maximum(pm.λ)
+#     g = θ -> cauchytransform_point(M_ab(J(r * exp(im * θ)), a, b), pm)
+#     θ = range(0, 2π; length=2*n+2)[1:end-1]
+#     fc = FFTW.fft(g.(θ))/(2*n+1)
+#     g_k = fc[1:n+1]
+
+#     n = min(n,maxterms)
+#     P = g_k[1:n]
+#     while abs(g_k[n]) < 10^-9
+#         n -= 1
+#     end
+
+#     s = invertpolynomial(P[1:n], z)
+#     s = [z for z in s if abs(z) < tol]
+    
+#     x = M_ab.(J.(r .* s), a, b)
+    
+#     number_of_atoms = length(pm.a)
+#     for i=1:number_of_atoms-1
+#         if length(x) >= number_of_atoms
+#             return x
+#         end
+#         for i in invcauchytransform_point_real2(z, pm, pm.λ[i], pm.λ[i+1]; maxterms, tol, r, n)
+#             if !any(isapprox.(x,i))
+#                 push!(x, i)
+#             end
+#         end
+#     end
+#     x
+# end
+
+# # not exported
+# function invcauchytransform_point_real2(z, pm::PointMeasure, a, b; maxterms=200, tol=1, r=0.9, n=200)
+#     g = θ -> cauchytransform_point(M_ab(H(r * exp(im * θ)), a, b), pm)
+#     θ = range(0, 2π; length=2*n+2)[1:end-1]
+#     fc = FFTW.fft(g.(θ))/(2*n+1)
+#     g_k = fc[1:n+1]
+#     n = min(n,maxterms)
+#     P = g_k[1:n]
+#     while abs(g_k[n]) < 10^-9
+#         n -= 1
+#     end
+#     s = invertpolynomial(P[1:n], z)
+#     s = [z for z in s if abs(z) < tol]
+#     if length(s) == 1
+#         return M_ab.(H.(r .* s), a, b)[1]
+#     else
+#         return M_ab.(H.(r .* s), a, b)
+#     end
+# end
 
 function invertpolynomial(P, z)
     P1 = P[1:end-1]/P[end]
@@ -190,7 +227,8 @@ function prunepoints_multivalued(points, InvG_a, InvG_b)
     preimages = Vector{ComplexF64}()
     images = Vector{ComplexF64}()
     for y in points
-        for x in InvG_c(y)
+        inv_y = InvG_c(y)
+        for x in inv_y
             if sign(imag(x)) != sign(imag(y))
                 push!(preimages, x)
                 push!(images, y)
@@ -218,19 +256,21 @@ function recovermeasure_multiplysupportedsqrt(supp_c, preimages, images, N=20)
     ψ_c_k_i = [sol[(i-1)*N+1:i*N] for i=1:length(supp_c)]
 end
 
+# some performance issues
 
-function freeaddition_sqrt_point(ψ_a_k, supp_a, pm_b::PointMeasure; m=40, maxterms=20, tolcomp=1, tolbisect = 10^-6, maxitsbisect=30, N=20, maxtermsfft = 50, r=0.8, n = 50)
+function freeaddition_sqrt_point(ψ_a_k, supp_a, pm_b::PointMeasure; m=40, maxterms=20, tolcomp=1, tolbisect = 10^-6, maxitsbisect=30, N=20)
     G_a = z -> cauchytransform_sqrt(Complex(z), ψ_a_k, supp_a[1], supp_a[2]; maxterms)
     #G_b = z -> cauchytransform_point(Complex(z), pm_b)
-    InvG_a = z -> invcauchytransform_sqrt(Complex(z), ψ_a_k, supp_a[1], supp_a[2]; maxterms)
-    InvG_b = z -> invcauchytransform_point(Complex(z), pm_b; maxterms = maxtermsfft, tol = tolcomp, r, n)
+    InvG_a = z -> invcauchytransform_sqrt(Complex(z), ψ_a_k, supp_a[1], supp_a[2]; maxterms, tol=tolcomp)
+    InvG_b = z -> invcauchytransform_point(Complex(z), pm_b)
     dG_a = z -> dcauchytransform_sqrt(Complex(z), ψ_a_k, supp_a[1], supp_a[2]; maxterms)
     dG_b = z -> dcauchytransform_point(Complex(z), pm_b)
     supp_c = support_sqrt_point(G_a, InvG_a, InvG_b, dG_a, dG_b, supp_a, pm_b; tol=tolbisect, maxits=maxitsbisect)
-    y_M = pointcloud_sqrt_point(G_a, supp_c, InvG_b; m=40)
+    y_M = pointcloud_sqrt_point(G_a, supp_c, InvG_b; m)
     preimages, images = prunepoints_multivalued(y_M, InvG_a, InvG_b)
     ψ_c_k_i = recovermeasure_multiplysupportedsqrt(supp_c, preimages, images, N)
     ψ_c_k_i, supp_c
 end
+
 
 

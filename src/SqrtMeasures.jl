@@ -140,7 +140,7 @@ Parameters:
         - However, if m is too large then the expansion in terms of Chebyshev U polynomials will lead to large errors in the final output measure.
 """
 function pointcloud_sqrt(G_a, G_b, supp_c, InvG_b; m = 10)
-    d_M = vec(unitcirclenodes(Float64, m)*[x for x in ChebyshevGrid{2}(2m+1)[1:m] if x > eps()]') # temporary Float64
+    d_M = vec(unitcirclenodes(Float64, m)*[x for x in ChebyshevGrid{1}(2m+1)[1:m] if x > eps()]') # temporary Float64
     z_μ_M = [M_ab(J(x), supp_c[1], supp_c[2]) for x in d_M if imag(x) >= eps()]
     y_M = G_a.(z_μ_M)
     y_M = [y for y in y_M if length(InvG_b(y)) == 1] # filter out points which have multivalued inverses
