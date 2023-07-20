@@ -11,3 +11,6 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 RandomMatrices = "2576dda1-a324-5b11-aa66-c48ed7e3c618"
 SpecialMatrices = "928aab9d-ef52-54ac-8ca1-acd7ca42c160"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+ClassicalOrthogonalPolynomials = "0.11"
