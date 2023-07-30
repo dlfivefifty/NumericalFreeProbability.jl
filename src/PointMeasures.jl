@@ -166,6 +166,25 @@ function invertpolynomial(P, z)
     eigvals(SpecialMatrices.Companion(P1))
 end
 
+
+function findallroots(f, x_l, x_r; tol=10^-6, maxits = 40, step=0.001)
+    points = []
+    sign_previous = 2
+    sgn_p = x -> x > 0
+    for x = x_l:step:x_r
+        if sign_previous != sgn_p(f(x))
+            sign_previous = sgn_p(f(x))
+            push!(points, x)
+        end
+    end
+    roots = []
+    n = length(points) - 1
+    for i=1:n
+        push!(roots, bisection(f, points[i], points[i+1]; tol, maxits))
+    end
+    roots
+end
+
 # a is the square root measure, b is the point measure
 function support_sqrt_point(G_a, InvG_a, InvG_b, dG_a, dG_b, supp_a, pm_b::PointMeasure; tol=10^-6, maxits=30)
     dInvG_a = z -> 1 ./ (dG_a.(InvG_a(z)))
@@ -176,8 +195,8 @@ function support_sqrt_point(G_a, InvG_a, InvG_b, dG_a, dG_b, supp_a, pm_b::Point
 
     number_of_atoms = length(pm_b.a)
     
-    a_0 = G_a(supp_a[1])
-    b_0 = G_a(supp_a[2])
+    a_0 = real(G_a(supp_a[1]))
+    b_0 = real(G_a(supp_a[2]))
     support_points = []
 
     for i=1:number_of_atoms
@@ -192,17 +211,21 @@ function support_sqrt_point(G_a, InvG_a, InvG_b, dG_a, dG_b, supp_a, pm_b::Point
         else
             test = z -> dInvG_c_real(z)[i]
         end
-        root = bisection(test, a_0, -0.0; tol=10^-6, maxits = 30)
-        if root !== nothing
-            push!(support_points, InvG_c(root)[i])
+        roots = findallroots(test, a_0, -0.0; tol, maxits)
+        for k in roots
+            if k !== nothing
+                push!(support_points, InvG_c(k)[i])
+            end
         end
-        root = bisection(test, 0.0, b_0; tol=10^-6, maxits = 30)
-        if root !== nothing
-            push!(support_points, InvG_c(root)[i])
+        roots = findallroots(test, 0.0, b_0; tol, maxits)
+        for k in roots
+            if k !== nothing
+                push!(support_points, InvG_c(k)[i])
+            end
         end
     end
     support_points = sort(real.(support_points))
-    supp_c = [(support_points[2*i-1], support_points[2*i]) for i=1:length(support_points)÷2]
+    [(support_points[2*i-1], support_points[2*i]) for i=1:length(support_points)÷2]
 end
 
 """
