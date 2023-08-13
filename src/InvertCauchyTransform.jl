@@ -17,7 +17,7 @@ using NonlinearEigenproblems, ClassicalOrthogonalPolynomials, FastGaussQuadratur
     f: function f(x)
     
 """
-function inversecauchytransform(y, P, w, f, n; radius= 0.8, N = 2000)
+function inversecauchytransform(y, P, w, f, n; radius= 0.8, N = 1000)
     J = jacobimatrix(P)'
     f_expanded = expand(P, f)
     f_k = f_expanded.args[2][1:n+1]
@@ -40,14 +40,18 @@ function inversecauchytransform(y, P, w, f, n; radius= 0.8, N = 2000)
         x = axes(W, 1)
         inv.(z .- x') * p_expanded
     end
-    
-    function H1(z)
-        -((I + z) * inv(I - z))^2 - I
-    end
-    function H2(z)
-        ((I + z) * inv(I - z))^2 + I
-    end
-    functionlist = [H1, H2]
+    # can probably reduce the number of conformal maps here
+    # ideally, if we can use Joukowski that would be the only map we need.
+    # But at the moment there are problems with mapping infinity to the interior of the unit disk.
+
+    H1(z) = im * (I + z) * inv(I - z)
+    H2(z) = -im * (I + z) * inv(I - z)
+    H3(z) = (I + z) * inv(I - z) + 1
+    H4(z) = -(I + z) * inv(I - z) - 1
+
+
+
+    functionlist = [H1, H2, H3, H4]
     
     inverses = []
     for H in functionlist
@@ -76,7 +80,8 @@ end
 P = ChebyshevU()
 f = x -> x^3/6 + x/2 + 1
 w = x -> √(1-x^2) * 2/π
-p = x -> (x^3/6 + x/2 + 1) * 2/pi * √(1-x^2)
+
+p = x -> f(x) * w(x)
 W = Weighted(P); p_expanded = expand(W, p);
 x = axes(W, 1)
 function G(z)
@@ -95,17 +100,55 @@ display(inversecauchytransform(y, P, w, f, n))
 P = Jacobi(2,2)
 f = x -> exp(x) / 1.0734430519421176
 w = x -> 15/16 * (1-x)^2 * (x+1)^2
+p = x -> exp(x) / 1.0734430519421176 * 15/16 * (1-x)^2 * (x+1)^2
 
-p = x -> exp(x) * 15/16 * (x-1)^2 * (x+1)^2 / 1.0734430519421176
 W = Weighted(P); p_expanded = expand(W, p);
 x = axes(W, 1)
 function G(z)
     inv.(z .- x') * p_expanded
 end
 
-n=5
-z=-1.3 + 0.0im
+n=7
+z=-1.3 + 0.5im
 y = G(z)
 
 display(inversecauchytransform(y, P, w, f, n))
+
+P = ChebyshevU()
+f = x -> 1.1362330060142339 * cos(x)
+w = x -> √(1-x^2) * 2/π
+
+p = x -> f(x) * w(x)
+W = Weighted(P); p_expanded = expand(W, p);
+x = axes(W, 1)
+function G(z)
+    inv.(z .- x') * p_expanded
+end
+
+n=7
+z=-1.2 + 0.1im
+y = G(z)
+
+display(inversecauchytransform(y, P, w, f, n))
+
+
+
+
+P = ChebyshevU()
+f = x -> (4x^2 + 1)/2
+w = x -> √(1-x^2) * 2/π
+
+p = x -> f(x) * w(x)
+W = Weighted(P); p_expanded = expand(W, p);
+x = axes(W, 1)
+function G(z)
+    inv.(z .- x') * p_expanded
+end
+
+n=1
+z=0.0 + 0.1im
+y = G(z)
+
+display(inversecauchytransform(y, P, w, f, n,
+ radius = 0.9))
 
