@@ -149,6 +149,5 @@ n=1
 z=0.0 + 0.1im
 y = G(z)
 
-display(inversecauchytransform(y, P, w, f, n,
- radius = 0.9))
+display(inversecauchytransform(y, P, w, f, n, radius = 0.9))
 
