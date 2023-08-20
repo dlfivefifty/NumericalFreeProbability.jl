@@ -76,8 +76,8 @@ function inversecauchytransform(y::Number, jm, n::Int; radius= 0.8, N = 1000)
     if iszero(last)
         throw(ArgumentError("n+2 coefficient must be non zero."))
     end
-    A = Matrix(jm.J[1:n+1,1:n+1]'); A[end,:] -= f_k ./ last .* jm.J[n+1, n+2]
-    b = zeros(ComplexF64, n+1); b[end] = y/last * jm.J[n+1, n+2]; b[1] = 1
+    A = Matrix(jm.J[1:n+1,1:n+1]'); A[end,:] -= f_k ./ last .* jm.J[n+2, n+1]
+    b = zeros(ComplexF64, n+1); b[end] = y/last * jm.J[n+2, n+1]; b[1] = 1
     Σ = zeros(n+1); Σ[1] += 1
     A1 = SMatrix{n+2, n+2}([0 Σ';b A])
     A2 = SMatrix{n+2, n+2}(Diagonal([-(i != 0) for i=0:n+1]))
@@ -119,7 +119,7 @@ function beyn(T::Function, m::Int; r=0.8, μ=0, N=1000, svtol=10^-12)
     invf = x -> inv(T(μ + r * x)) * x
     exp2πimjN = [exp(2π*im * j / N) for j=0:N-1]
     invT = invf.(exp2πimjN)
-    V̂ = [randn() + randn()*im for i=1:m, j=1:m]
+    V̂ = randn(ComplexF64,m,m)
     A_0N = r/N * sum(invT) * V̂
     A_1N = μ * A_0N + r^2/N * sum(invT .* exp2πimjN) * V̂
     V, S, W = svd(A_0N)
