@@ -4,6 +4,7 @@ using BandedMatrices, LazyArrays
 using ProfileView
 using Profile, Cthulhu, PProf
 using Revise
+using StaticArrays
 
 struct JacobiMeasure{T1<:Real, T2<:Real}
     P::Jacobi{Float64}
@@ -70,24 +71,18 @@ end
 
 
 function inversecauchytransform(y::Number, jm, n::Int; radius= 0.8, N = 1000)
-    J = jm.J'
     f_k = jm.f_k[1:n+1]
     last = jm.f_k[n+2]
     if iszero(last)
         throw(ArgumentError("n+2 coefficient must be non zero."))
     end
-    A = Matrix(J[1:n+1,1:n+1])
-    A[end,:] -= f_k ./ last .* J[n+1, n+2]
-    b = zeros(n+1) .+ 0im
-    b[end] = y/last * J[n+1, n+2]
-    b[1] = 1
-    Σ = zeros(n+1)
-    Σ[1] += 1
-    A1 = [0 Σ';b A]
-    A2 = Diagonal([-(i != 0) for i=0:n+1])
-    A3 = [0 zeros(n+1)';A*Σ zeros(n+1, n+1)]
-    A4 = [0 zeros(n+1)';-Σ zeros(n+1, n+1)]
-    
+    A = Matrix(jm.J[1:n+1,1:n+1]'); A[end,:] -= f_k ./ last .* jm.J[n+1, n+2]
+    b = zeros(ComplexF64, n+1); b[end] = y/last * jm.J[n+1, n+2]; b[1] = 1
+    Σ = zeros(n+1); Σ[1] += 1
+    A1 = SMatrix{n+2, n+2}([0 Σ';b A])
+    A2 = SMatrix{n+2, n+2}(Diagonal([-(i != 0) for i=0:n+1]))
+    A3 = SMatrix{n+2, n+2}([0 zeros(n+1)';A*Σ zeros(n+1, n+1)])
+    A4 = SMatrix{n+2, n+2}([0 zeros(n+1)';-Σ zeros(n+1, n+1)])
     functionlist = Vector{Function}()
     if imag(y) > 0
         H2(z::Number) = -im * (I + z) * inv(I - z)
@@ -103,14 +98,12 @@ function inversecauchytransform(y::Number, jm, n::Int; radius= 0.8, N = 1000)
         push!(functionlist, H3)
         push!(functionlist, H4)
     end
-    inverses = []
+    inverses = Vector{ComplexF64}()
     for H in functionlist
         function T(z::Number)
             hz = H(z)
-            q_0hz = jm.q_0(hz)
-            A1 + hz * A2 + q_0hz * (A3 + hz * A4)
+            A1 + hz * A2 + jm.q_0(hz) * (A3 + hz * A4)
         end
-
         λ = beyn(T, n+2; r=radius, μ=0, N)
         for z in H.(λ)
             if all(abs.(z .- inverses) .> 10^-10)
@@ -125,8 +118,8 @@ function beyn(T::Function, m::Int; r=0.8, μ=0, N=1000, svtol=10^-12)
     Random.seed!(163) # my favourite integer
     invf = x -> inv(T(μ + r * x)) * x
     exp2πimjN = [exp(2π*im * j / N) for j=0:N-1]
-    @time invT = invf.(exp2πimjN)
-    V̂ = randn(m,m) + randn(m,m)im
+    invT = invf.(exp2πimjN)
+    V̂ = [randn() + randn()*im for i=1:m, j=1:m]
     A_0N = r/N * sum(invT) * V̂
     A_1N = μ * A_0N + r^2/N * sum(invT .* exp2πimjN) * V̂
     V, S, W = svd(A_0N)
@@ -142,16 +135,36 @@ function beyn(T::Function, m::Int; r=0.8, μ=0, N=1000, svtol=10^-12)
 end
 
 
-# sqm = SquarerootMeasure(x -> x^3/6 + x/2 + 1)
+sqm = SquarerootMeasure(x -> x^3/6 + x/2 + 1); n=2; z=-0.5 + 0.1im; y = sqm.G(z);
+@btime inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
 
-# n=2
-# z=-0.5 + 0.1im
-# y = sqm.G(z)
-# inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
+# julia> sqm = SquarerootMeasure(x -> x^3/6 + x/2 + 1); n=2; z=-0.5 + 0.1im; y = sqm.G(z)
+# -1.1331365255107277 - 1.170648976000868im
 
-jm = JacobiMeasure(x -> (7x^2 + 1)/2, 2, 2)
+# julia> @time inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
+#   0.005652 seconds (22.95 k allocations: 8.010 MiB)
+# 1-element Vector{Any}:
+#  -0.4999999999999883 + 0.10000000000000556im
 
-n=1
-z=-0.5 + 0.1im
-y = jm.G(z)
-inversecauchytransform(y, jm, n; radius= 0.9, N = 1000)
+jm = JacobiMeasure(x -> (7x^2 + 1)/2, 2, 2); n=1; z=-0.5 + 0.1im; y = jm.G(z);
+@btime inversecauchytransform(y, jm, n; radius= 0.9, N = 1000)
+
+# julia> jm = JacobiMeasure(x -> (7x^2 + 1)/2, 2, 2); n=1; z=-0.5 + 0.1im; y = jm.G(z)
+# -0.8179061373251617 - 1.8429838453246645im
+
+# julia> @time inversecauchytransform(y, jm, n; radius= 0.9, N = 1000)
+#   0.008250 seconds (42.75 k allocations: 6.649 MiB)
+# 1-element Vector{Any}:
+#  -0.5000000000000075 + 0.09999999999999251im
+
+sqm = SquarerootMeasure(x -> (4x^2+1)/2); n=1; z=0.1im; y = sqm.G(z);
+@btime inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
+
+# julia> sqm = SquarerootMeasure(x -> (4x^2+1)/2); n=1; z=0.1im; y = sqm.G(z)
+# 0.0 - 1.0687880596276051im
+
+# julia> @time inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
+#   0.005328 seconds (22.97 k allocations: 5.781 MiB)
+# 2-element Vector{Any}:
+#  -6.145050687937699e-15 + 0.10000000000001238im
+#  1.0810235311851757e-14 + 0.3276135241963962im
