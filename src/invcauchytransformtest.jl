@@ -3,7 +3,7 @@ using Random
 using BandedMatrices, LazyArrays
 using ProfileView
 using Profile, Cthulhu, PProf
-using Revise
+using Revise, BenchmarkTools
 using StaticArrays
 
 struct JacobiMeasure{T1<:Real, T2<:Real}
@@ -32,8 +32,8 @@ struct JacobiMeasure{T1<:Real, T2<:Real}
         function G(z::Number)
             inv.(z .- x') * p_expanded
         end
-        function q_0(z::Number)
-            inv.(z .- x') * w_expanded
+        function q_0(z::Vector{ComplexF64}) # technical function only needed for inversion
+            (inv.(z .- x') * w_expanded)[:]
         end
         new{T1, T2}(P, J, f_k, f, w, G, q_0, a, b)
     end
@@ -61,7 +61,7 @@ struct SquarerootMeasure{}
         function G(z::Number)
             inv.(z .- x') * p_expanded
         end
-        function q_0(z::Number)
+        function q_0(z::Vector{ComplexF64}) # technical function only needed for inversion
             inv.(z .- x') * w_expanded
         end
         new{}(P, J, f_k, f, w, G, q_0)
@@ -100,11 +100,12 @@ function inversecauchytransform(y::Number, jm, n::Int; radius= 0.8, N = 1000)
     end
     inverses = Vector{ComplexF64}()
     for H in functionlist
-        function T(z::Number)
-            hz = H(z)
-            A1 + hz * A2 + jm.q_0(hz) * (A3 + hz * A4)
+        function T(z::Vector{ComplexF64})
+            hz = H.(z)
+            q_0hz = jm.q_0(hz)
+            [A1 + hz[i] * A2 + q_0hz[i] * (A3 + hz[i] * A4) for i=1:length(z)]
         end
-        λ = beyn(T, n+2; r=radius, μ=0, N)
+        λ = beyn(T, n+2; r=radius, N)
         for z in H.(λ)
             if all(abs.(z .- inverses) .> 10^-10)
                 push!(inverses, z)
@@ -114,14 +115,14 @@ function inversecauchytransform(y::Number, jm, n::Int; radius= 0.8, N = 1000)
     inverses
 end
 
-function beyn(T::Function, m::Int; r=0.8, μ=0, N=1000, svtol=10^-12)
+function beyn(T::Function, m::Int; r=0.8, N=1000, svtol=10^-12)
     Random.seed!(163) # my favourite integer
-    invf = x -> inv(T(μ + r * x)) * x
     exp2πimjN = [exp(2π*im * j / N) for j=0:N-1]
-    invT = invf.(exp2πimjN)
+    invT = inv.(T(r .* exp2πimjN)) .* exp2πimjN
+
     V̂ = randn(ComplexF64,m,m)
     A_0N = r/N * sum(invT) * V̂
-    A_1N = μ * A_0N + r^2/N * sum(invT .* exp2πimjN) * V̂
+    A_1N = r^2/N * sum(invT .* exp2πimjN) * V̂
     V, S, W = svd(A_0N)
     k = m
     while k >= 1 && abs(S[k]) < svtol
@@ -137,34 +138,8 @@ end
 
 sqm = SquarerootMeasure(x -> x^3/6 + x/2 + 1); n=2; z=-0.5 + 0.1im; y = sqm.G(z);
 @btime inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
-
-# julia> sqm = SquarerootMeasure(x -> x^3/6 + x/2 + 1); n=2; z=-0.5 + 0.1im; y = sqm.G(z)
-# -1.1331365255107277 - 1.170648976000868im
-
-# julia> @time inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
-#   0.005652 seconds (22.95 k allocations: 8.010 MiB)
-# 1-element Vector{Any}:
-#  -0.4999999999999883 + 0.10000000000000556im
-
 jm = JacobiMeasure(x -> (7x^2 + 1)/2, 2, 2); n=1; z=-0.5 + 0.1im; y = jm.G(z);
 @btime inversecauchytransform(y, jm, n; radius= 0.9, N = 1000)
-
-# julia> jm = JacobiMeasure(x -> (7x^2 + 1)/2, 2, 2); n=1; z=-0.5 + 0.1im; y = jm.G(z)
-# -0.8179061373251617 - 1.8429838453246645im
-
-# julia> @time inversecauchytransform(y, jm, n; radius= 0.9, N = 1000)
-#   0.008250 seconds (42.75 k allocations: 6.649 MiB)
-# 1-element Vector{Any}:
-#  -0.5000000000000075 + 0.09999999999999251im
-
 sqm = SquarerootMeasure(x -> (4x^2+1)/2); n=1; z=0.1im; y = sqm.G(z);
 @btime inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
 
-# julia> sqm = SquarerootMeasure(x -> (4x^2+1)/2); n=1; z=0.1im; y = sqm.G(z)
-# 0.0 - 1.0687880596276051im
-
-# julia> @time inversecauchytransform(y, sqm, n; radius= 0.9, N = 1000)
-#   0.005328 seconds (22.97 k allocations: 5.781 MiB)
-# 2-element Vector{Any}:
-#  -6.145050687937699e-15 + 0.10000000000001238im
-#  1.0810235311851757e-14 + 0.3276135241963962im

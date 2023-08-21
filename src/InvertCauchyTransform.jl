@@ -77,77 +77,77 @@ end
 
 
 
-P = ChebyshevU()
-f = x -> x^3/6 + x/2 + 1
-w = x -> √(1-x^2) * 2/π
+# P = ChebyshevU()
+# f = x -> x^3/6 + x/2 + 1
+# w = x -> √(1-x^2) * 2/π
 
-p = x -> f(x) * w(x)
-W = Weighted(P); p_expanded = expand(W, p);
-x = axes(W, 1)
-function G(z)
-    inv.(z .- x') * p_expanded
-end
+# p = x -> f(x) * w(x)
+# W = Weighted(P); p_expanded = expand(W, p);
+# x = axes(W, 1)
+# function G(z)
+#     inv.(z .- x') * p_expanded
+# end
 
-n=2
-z=-1.2 + 0.0im
-y = G(z)
+# n=2
+# z=-1.2 + 0.0im
+# y = G(z)
 
-display(inversecauchytransform(y, P, w, f, n))
-
-
-
-
-P = Jacobi(2,2)
-f = x -> exp(x) / 1.0734430519421176
-w = x -> 15/16 * (1-x)^2 * (x+1)^2
-p = x -> exp(x) / 1.0734430519421176 * 15/16 * (1-x)^2 * (x+1)^2
-
-W = Weighted(P); p_expanded = expand(W, p);
-x = axes(W, 1)
-function G(z)
-    inv.(z .- x') * p_expanded
-end
-
-n=7
-z=-1.3 + 0.5im
-y = G(z)
-
-display(inversecauchytransform(y, P, w, f, n))
-
-P = ChebyshevU()
-f = x -> 1.1362330060142339 * cos(x)
-w = x -> √(1-x^2) * 2/π
-
-p = x -> f(x) * w(x)
-W = Weighted(P); p_expanded = expand(W, p);
-x = axes(W, 1)
-function G(z)
-    inv.(z .- x') * p_expanded
-end
-
-n=7
-z=-1.2 + 0.1im
-y = G(z)
-
-display(inversecauchytransform(y, P, w, f, n))
+# display(inversecauchytransform(y, P, w, f, n))
 
 
 
 
-P = ChebyshevU()
-f = x -> (4x^2 + 1)/2
-w = x -> √(1-x^2) * 2/π
+# P = Jacobi(2,2)
+# f = x -> exp(x) / 1.0734430519421176
+# w = x -> 15/16 * (1-x)^2 * (x+1)^2
+# p = x -> exp(x) / 1.0734430519421176 * 15/16 * (1-x)^2 * (x+1)^2
 
-p = x -> f(x) * w(x)
-W = Weighted(P); p_expanded = expand(W, p);
-x = axes(W, 1)
-function G(z)
-    inv.(z .- x') * p_expanded
-end
+# W = Weighted(P); p_expanded = expand(W, p);
+# x = axes(W, 1)
+# function G(z)
+#     inv.(z .- x') * p_expanded
+# end
 
-n=1
-z=0.0 + 0.1im
-y = G(z)
+# n=7
+# z=-1.3 + 0.5im
+# y = G(z)
 
-display(inversecauchytransform(y, P, w, f, n, radius = 0.9))
+# display(inversecauchytransform(y, P, w, f, n))
+
+# P = ChebyshevU()
+# f = x -> 1.1362330060142339 * cos(x)
+# w = x -> √(1-x^2) * 2/π
+
+# p = x -> f(x) * w(x)
+# W = Weighted(P); p_expanded = expand(W, p);
+# x = axes(W, 1)
+# function G(z)
+#     inv.(z .- x') * p_expanded
+# end
+
+# n=7
+# z=-1.2 + 0.1im
+# y = G(z)
+
+# display(inversecauchytransform(y, P, w, f, n))
+
+
+
+
+# P = ChebyshevU()
+# f = x -> (4x^2 + 1)/2
+# w = x -> √(1-x^2) * 2/π
+
+# p = x -> f(x) * w(x)
+# W = Weighted(P); p_expanded = expand(W, p);
+# x = axes(W, 1)
+# function G(z)
+#     inv.(z .- x') * p_expanded
+# end
+
+# n=1
+# z=0.0 + 0.1im
+# y = G(z)
+
+# display(inversecauchytransform(y, P, w, f, n, radius = 0.9))
 
