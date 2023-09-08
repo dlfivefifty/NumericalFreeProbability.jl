@@ -5,8 +5,8 @@ export support_sqrt, recovermeasure_sqrt, freeaddition_sqrt
 # TODO: turn the measures into special types
 
 # Joukowski transform
-Jinv_p(z) = z - √(z - 1) * √(z + 1)
-J(z) = (z + 1/z)/2
+#Jinv_p(z) = z - √(z - 1) * √(z + 1)
+#J(z) = (z + 1/z)/2
 
 
 function dJinv_p(z::T) where T
@@ -26,12 +26,10 @@ function d2Jinv_p(z::T) where T
 end
 
 # Affine maps to transform support
-M_ab(x,a,b) = (a + b)/2 + (b - a) * x /2 # maps from (-1, 1) to (a, b)
-M_ab_inv(y,a,b) = (2*y - (a + b))/(b - a) # maps from (a, b) to (-1, 1)
 dM_ab_inv(y,a,b) = 2/(b - a) # TODO: maybe get rid of this since its really just a constant.
 
 # function to generate points on unit circle in complex plane
-unitcirclenodes(T, n) = [exp(π * (convert(T, 2k)/n-1)im) for k=0:n-1]
+#unitcirclenodes(T, n) = [exp(π * (convert(T, 2k)/n-1)im) for k=0:n-1]
 
 
 

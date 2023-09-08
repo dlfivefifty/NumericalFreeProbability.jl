@@ -160,12 +160,6 @@ end
 #     end
 # end
 
-function invertpolynomial(P, z)
-    P1 = P[1:end-1]/P[end]
-    P1[1] -= z/P[end]
-    eigvals(SpecialMatrices.Companion(P1))
-end
-
 
 function findallroots(f, x_l, x_r; tol=10^-6, maxits = 40, step=0.001)
     points = []

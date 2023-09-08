@@ -2,19 +2,19 @@ using NumericalFreeProbability
 using Test, ClassicalOrthogonalPolynomials, LinearAlgebra
 
 P = ChebyshevU()
-
+x = axes(P, 1)
 # standard semicircle chebyshev coefficients
 ψ_semi_k = [1/pi]
 
 # marchenko-pastur c = 2 chebyshev coefficients
 ψ_x = x -> √2 / (x * pi)
 ψ_x_expand = x -> ψ_x(3 + 2√2 * x)
-ψ_mp2_k = expand(P, ψ_x_expand).args[2]
+ψ_mp2_k = P \ ψ_x_expand.(x)
 
 # marchenko-pastur c = 4 chebyshev coefficients
 ψ_x = x -> 2 / (x * pi)
 ψ_x_expand = x -> ψ_x(5 + 4 * x)
-ψ_mp4_k = expand(P, ψ_x_expand).args[2]
+ψ_mp4_k = P \ ψ_x_expand.(x)
 
 @testset "cauchytransform_sqrt" begin
 
