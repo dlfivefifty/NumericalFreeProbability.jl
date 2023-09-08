@@ -56,8 +56,8 @@ function invcauchytransform(y::T, m::JacobiMeasure; maxterms=20, tol=10^-9, N=10
         push!(functionlist, H1)
     end
     if abs(imag(y)) < 10^-10
-        H3(z::Number) = (I + z) * inv(I - z) + 1
-        H4(z::Number) = -(I + z) * inv(I - z) - 1
+        H3(z::Number) = (I + z) * inv(I - z) + m.b
+        H4(z::Number) = -(I + z) * inv(I - z) + m.a
         push!(functionlist, H3)
         push!(functionlist, H4)
     end
