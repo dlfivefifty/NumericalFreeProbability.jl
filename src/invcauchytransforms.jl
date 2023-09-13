@@ -61,7 +61,7 @@ function invcauchytransform(y::T, m::OPMeasure; maxterms=20, tol=10^-9, N=1000, 
         return invcauchytransform_1(y, m; N, r)
     end
     f_k = m.ψ_k[1:n-1]; last = m.ψ_k[n]
-    A1, A2, A3, A4, K = creatematrices(y, OP, f_k, last, n, true)
+    A1, A2, A3, A4, K = creatematrices(y, OP, f_k, last, n)
     function q_0(z::AbstractVector{T}) where {T<:Number}
         (inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(T, ∞)))[:]
     end
@@ -152,7 +152,7 @@ function invcauchytransform(y::AbstractVector{T}, m::OPMeasure; maxterms=20, tol
     end
     testval = -one(eltype(y))im
     f_k = m.ψ_k[1:n-1]; last = m.ψ_k[n]
-    A1, A2, A3, A4, K = creatematrices(testval, OP, f_k, last, n, true)
+    A1, A2, A3, A4, K = creatematrices(testval, OP, f_k, last, n)
     function q_0(z::AbstractVector{T}) where {T<:Number}
         (inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(T, ∞)))[:]
     end
@@ -160,42 +160,98 @@ function invcauchytransform(y::AbstractVector{T}, m::OPMeasure; maxterms=20, tol
     beyn_multi(y, A1, A2, A3, A4, OP, H; r, N, svtol=10^-10, testval, K)
 end
 
-function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K=1) where {T<:AbstractArray, T2<:Complex}
+# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
+#     Random.seed!(163) # my favourite integer
+#     m = size(A1)[1]; C = 0:N-1
+#     V̂ = randn(ComplexF64,m,m)
+#     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
+#     Hrexp2πimjN = LazyArray(@~ @. H(r * exp2πimjN))
+
+#     q_0hz = Vector(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
+
+#     T_nep(n::Int) = A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4)
+
+#     invT = Vector{Matrix{T3}}(undef, N)
+#     invT = inv.(T_nep.(1:N))
+
+#     ans = Vector{Vector{T3}}(undef, length(y))
+#     rank1invT = Vector{Matrix{T3}}(undef, N)
+#     for i in eachindex(y)
+#         yp = y[i]
+#         rank1invT = deepcopy(invT)
+#         f(M::Matrix) = invbl!(M, (yp - testval)*K)
+#         map(f, rank1invT)
+#         rank1invT .*= exp2πimjN
+#         A_0N = r/N * sum(rank1invT) * V̂
+#         rank1invT .*= exp2πimjN
+#         A_1N = r^2/N * sum(rank1invT) * V̂
+#         ans[i] = H.(beynsvd(A_0N, A_1N, svtol))
+#     end
+#     ans
+# end
+m_f(x::Int) = x < 6 ? x : round(log2(x))+3
+
+function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
     Random.seed!(163) # my favourite integer
     m = size(A1)[1]; C = 0:N-1
-    V̂ = SMatrix{m,m}(randn(ComplexF64,m,m))
+    V̂ = randn(ComplexF64,m,m_f(m))
     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
-    exp2πimjN = @. cispi(2*C/N)
-    Hrexp2πimjN = @. H(r * exp2πimjN)
+    Hrexp2πimjN = LazyArray(@~ @. H(r * exp2πimjN))
 
-    q_0hz = SVector{N}(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
+    q_0hz = Vector(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
 
-    T_nep(n::Int) = A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4)
+    T_nep(n::Int) = (A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4))
+    invT = Vector{Matrix{T3}}(undef, N)
+    invT = inv.(T_nep.(1:N))
 
-    # invT = Array{eltype(y)}(undef, m, m, N)
-    invT = SVector{N}(inv.(T_nep.(1:N)))
-    # @time for i = 1:N
-    #     invT[:,:,i] = inv(T_nep(i))
-    # end
-
-    ans = Vector{Vector{eltype(A1)}}(undef, length(y))
-    rank1invT = Vector{MMatrix{m,m,eltype(A1)}}(invT)
-    for i=1:length(y)
-        yp = y[i]
-        copy!(rank1invT, invT)
-        for j=1:N
-            invbl!(rank1invT[j], (yp - testval)*K)
-            rank1invT[j] .*= exp2πimjN[j]
-        end
-        A_0N = r/N * sum(rank1invT) * V̂
-        for j=1:N
-            rank1invT[j] .*= exp2πimjN[j]
-        end
-        A_1N = r^2/N * sum(rank1invT) * V̂
+    ans = Vector{Vector{T3}}(undef, length(y))
+    yv_a = ApplyArray(vcat, y[1] - testval, Diff(y)) .* K
+    for (i,yv) in enumerate(yv_a)
+        f(M::AbstractMatrix) = invbl!(M, yv)
+        map(f, invT)
+        A_0N = r/N * sum(invT .* exp2πimjN) * V̂
+        A_1N = r^2/N * sum(invT .* exp2πimjN .^ 2) * V̂
         ans[i] = H.(beynsvd(A_0N, A_1N, svtol))
     end
     ans
 end
+
+
+
+# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
+#     Random.seed!(163) # my favourite integer
+#     m = size(A1)[1]; C = 0:N-1
+#     V̂ = randn(ComplexF64,m,m)
+#     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
+#     Hrexp2πimjN = LazyArray(@~ @. H(r * exp2πimjN))
+
+#     q_0hz = Vector(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
+
+#     T_nep(n::Int) = A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4)
+
+#     invT = Array{T3}(undef, m, m, N)
+#     rank1invT = Array{T3}(undef, m, m, N)
+
+#     invT = cat(inv.T_nep.(1:N)..., dims=3);
+#     ans = Vector{Vector{T3}}(undef, length(y))
+
+
+#     for i in eachindex(y)
+#         yp = y[i]
+#         copy!(rank1invT, invT)
+#         for j=1:N
+#             A = @view rank1invT[:,:,j]
+#             invbl!(A, (yp - testval)*K)
+#         end
+#         rank1invT .*= exp2πimjN
+#         A_0N = r/N * sum(rank1invT) * V̂
+#         rank1invT .*= exp2πimjN
+#         A_1N = r^2/N * sum(rank1invT) * V̂
+#         ans[i] = H.(beynsvd(A_0N, A_1N, svtol))
+#     end
+#     ans
+# end
+
 
 # function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K=1) where {T<:AbstractArray, T2<:Complex}
 #     Random.seed!(163) # my favourite integer
@@ -218,7 +274,7 @@ end
 #     ans
 # end
 
-function beyn_multi(y::AbstractVector{T2}, last::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12) where {T<:Number, T2<:Complex}
+function beyn_multi(y::AbstractVector{T}, last::T2, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12) where {T2<:Number, T<:Complex}
     Random.seed!(163) # my favourite integer
     C = 0:N-1
     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
@@ -226,7 +282,7 @@ function beyn_multi(y::AbstractVector{T2}, last::T, OP::AbstractQuasiMatrix, H::
     q_0hz = (inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))[:]
     T_nep(n::Int) = -q_0hz[n] * last
     arrayT = LazyArray(@~ @. T_nep(1:N)) # is now a concrete array
-    ans = Vector{Vector{T2}}(undef, length(y))
+    ans = Vector{Vector{T}}(undef, length(y))
     @simd for i=1:length(y)
         yp = y[i]
         invT = inv.(arrayT .+ yp) .* exp2πimjN
@@ -238,22 +294,16 @@ function beyn_multi(y::AbstractVector{T2}, last::T, OP::AbstractQuasiMatrix, H::
     ans
 end
 
-function creatematrices(y::T, OP::AbstractQuasiArray, f_k::AbstractVector{T2}, last::T2, n::Int, ms::Bool) where {T<:Number, T2<:Real}
+function creatematrices(y::T, OP::AbstractQuasiArray, f_k::AbstractVector{T2}, last::T2, n::Int) where {T<:Number, T2<:Real}
     J = jacobimatrix(OP)
     A = Matrix(J[1:n-1,1:n-1]'); A[end,:] -= f_k ./ last .* J[n, n-1]
     b = zeros(T, n-1); b[end] = y/last * J[n, n-1]; b[1] = sum(orthogonalityweight(OP))
     Σ = zeros(n-1); Σ[1] += 1
-    if ms
-        A1 = SMatrix{n, n, T}([0 Σ';b A])
-        A2 = SMatrix{n, n, T}(Diagonal([-(i != 0) for i=0:n-1]))
-        A3 = SMatrix{n, n, T}([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
-        A4 = SMatrix{n, n, T}([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
-    else
-        A1 = MMatrix{n, n, T}([0 Σ';b A])
-        A2 = MMatrix{n, n, T}(Diagonal([-(i != 0) for i=0:n-1]))
-        A3 = MMatrix{n, n, T}([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
-        A4 = MMatrix{n, n, T}([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
-    end
+    U = complex(T)
+    A1 = MMatrix{n,n,U}([0 Σ';b A])
+    A2 = MMatrix{n,n,U}(Diagonal([-(i != 0) for i=0:n-1]))
+    A3 = MMatrix{n,n,U}([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
+    A4 = MMatrix{n,n,U}([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
     A1, A2, A3, A4, J[n, n-1]/last
 end
 
