@@ -1,4 +1,4 @@
-export freeaddition, recovermeasure_sqrt, pointcloud_sqrt, prunepoints, support_sqrt
+export freeaddition, recovermeasure_sqrt, pointcloud_sqrt, prunepoints, support_sqrt, ⊞
 
 unitcirclenodes(T, n) = [exp(π * (convert(T, 2k)/n-1)im) for k=0:n-1]
 
@@ -125,7 +125,7 @@ function recovermeasure_sqrt(InvG_a, InvG_b, supp_c, y_m)
     f = [real.(y_m);imag.(y_m)]
     Q, R̂ = qr(V)
     Q̂ = Q[:,1:n]
-    R̂ \ Q̂'f
+    R̂ \ Q̂'f / π
 end
 
 
@@ -169,6 +169,7 @@ function freeaddition(m_a::ChebyshevUMeasure, m_b::ChebyshevUMeasure; m=10, maxt
     y_m = prunepoints(y_M, InvG_a, InvG_b)
     ψ_c_k = recovermeasure_sqrt(InvG_a, InvG_b, supp_c, y_m)
 
-    ChebyshevUMeasure(supp_c[1], supp_c[2], vcat(ψ_c_k * (supp_c[2] - supp_c[1])/4, zeros(∞)))
+    ChebyshevUMeasure(supp_c[1], supp_c[2], vcat(ψ_c_k, zeros(∞)))
 end
 
+⊞(m_a::ChebyshevUMeasure, m_b::ChebyshevUMeasure) = freeaddition(m_a::ChebyshevUMeasure, m_b::ChebyshevUMeasure)

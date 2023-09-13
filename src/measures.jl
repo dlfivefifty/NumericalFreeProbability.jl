@@ -1,22 +1,21 @@
-export ChebyshevUMeasure, JacobiMeasure, Semicircle, ACMeasure, CompactACMeasure
-
+export ACMeasure, AbstractJacobiMeasure,
+            ChebyshevUMeasure, JacobiMeasure, Semicircle, SquareRootMeasure, SumOPMeasure,
+            normalize, m_op
 abstract type ACMeasure{T} <: AbstractQuasiArray{T,1} end
-abstract type CompactACMeasure{T} <: ACMeasure{T} end
-
-
-abstract type AbstractJacobiMeasure{T} <: CompactACMeasure{T} end
+abstract type OPMeasure{T} <: ACMeasure{T} end
+abstract type AbstractJacobiMeasure{T} <: OPMeasure{T} end
 axes(m::AbstractJacobiMeasure) = m.a..m.b
 
-const e0inf = vcat([1], zeros(∞))
 
-# square root measure on single interval
+
 struct ChebyshevUMeasure{T<:Real} <: AbstractJacobiMeasure{T} 
     a::T
     b::T
-    Z::T
     ψ_k::LazyArray{T, 1}
-    ChebyshevUMeasure{T}(a, b, ψ_k) where T<:Real = new{T}(a, b, π * (b - a)/4, ψ_k)
+    ChebyshevUMeasure{T}(a, b, ψ_k) where T<:Real = new{T}(a, b, ψ_k)
 end
+
+SquareRootMeasure = ChebyshevUMeasure
 
 ChebyshevUMeasure(a::T, b::T, ψ_k::LazyArray{T, 1}) where {T<:Real} = ChebyshevUMeasure{T}(a, b, ψ_k)
 function ChebyshevUMeasure(a::Real, b::Real, ψ_k::LazyArray{T, 1}) where {T<:Real}
@@ -25,14 +24,15 @@ function ChebyshevUMeasure(a::Real, b::Real, ψ_k::LazyArray{T, 1}) where {T<:Re
 end
 
 function ChebyshevUMeasure(a::Real, b::Real, f::Function)
-    P = ChebyshevU()
-    f_ab(x::Real) = f(M_ab(x, a, b))
-    ψ_k = P \ f_ab.(axes(P, 1))
+    P = chebyshevu(a..b)
+    ψ_k = P \ f.(axes(P, 1))
     ChebyshevUMeasure(a, b, ψ_k)
 end
+ChebyshevUMeasure(a::Real, b::Real, k::Real) = ChebyshevUMeasure(a, b, vcat([1], zeros(promote_type(typeof(a), typeof(b), typeof(k)), ∞)) * k)
+ChebyshevUMeasure(a::Real, b::Real) = ChebyshevUMeasure(a, b, 1)
 
-getindex(m::ChebyshevUMeasure, x) = (Weighted(ChebyshevU()) * m.ψ_k)[M_ab_inv.(x, m.a, m.b)] / m.Z
-
+getindex(m::ChebyshevUMeasure, x) = (Weighted(chebyshevu(m.a..m.b)) * m.ψ_k)[x]
+sum(m::ChebyshevUMeasure) = sum(orthogonalityweight(chebyshevu(m.a..m.b))) * m.ψ_k[1]
 
 
 # jacobi measure on a single interval
@@ -41,14 +41,12 @@ struct JacobiMeasure{T<:Real} <: AbstractJacobiMeasure{T}
     b::T
     α::T
     β::T
-    Z::T
     ψ_k::LazyArray{T, 1}
     function JacobiMeasure{T}(a, b, α, β, ψ_k) where {T<:Real}
         if !(α > -1 && β > -1)
             error("jacobi exponents must be > -1")
         end
-        Z = SpecialFunctions.beta(α+1,β+1) * 2^(α+β) * (b-a)
-        new{T}(a, b, α, β, Z, ψ_k)
+        new{T}(a, b, α, β, ψ_k)
     end
 end
 
@@ -60,13 +58,63 @@ end
 
 function JacobiMeasure(a::Real, b::Real, α::Real, β::Real, f::Function)
     P = Jacobi(α, β)
-    f_ab(x::Real) = f(M_ab_inv(x, a, b))
-    ψ_k = P \ f_ab.(axes(P, 1))
+    ψ_k = P \ f.(axes(P, 1))
     JacobiMeasure(a, b, α, β, ψ_k)
 end
 
-getindex(m::JacobiMeasure, x) = (Weighted(Jacobi(m.α, m.β)) * m.ψ_k)[M_ab_inv.(x, m.a, m.b)] / m.Z
+JacobiMeasure(a::Real, b::Real, α::Real, β::Real, k::Real) = JacobiMeasure(a, b, α, β, vcat([1], zeros(promote_type(typeof(a), typeof(b), typeof(k), typeof(α), typeof(β)), ∞)) * k)
+JacobiMeasure(a::Real, b::Real, α::Real, β::Real) = JacobiMeasure(a, b, α, β, 1)
 
-const Semicircle(R) = ChebyshevUMeasure(-R, R, e0inf)
-const Semicircle() = Semicircle(2)
+getindex(m::JacobiMeasure, x) = (Weighted(jacobi(m.α, m.β, m.a..m.b)) * m.ψ_k)[x]
+sum(m::JacobiMeasure) = sum(orthogonalityweight(jacobi(m.α, m.β, m.a..m.b))) * m.ψ_k[1]
+
+
+
+Semicircle(R::Real) = ChebyshevUMeasure(-R, R, 2*vcat([1], zeros(∞))/(π*R))
+Semicircle() = Semicircle(2)
+
+normalize(m::ChebyshevUMeasure) = ChebyshevUMeasure(m.a, m.b, m.ψ_k/sum(m))
+normalize(m::JacobiMeasure) = JacobiMeasure(m.a, m.b, m.α, m.β, m.ψ_k/sum(m))
+
+struct SumOPMeasure{T<:Real} <: ACMeasure{T}
+    m_k::Vector{OPMeasure{T}}
+    SumOPMeasure{T}(m_k) where T<:Real = new{T}(m_k)
+end
+
+SumOPMeasure(m_k::Vector{M}) where {T<:Real, M<:OPMeasure{T}} = SumOPMeasure{T}(m_k)
+
++(m1::OPMeasure, m2::OPMeasure) = SumOPMeasure([m1, m2])
++(m1::OPMeasure, m2::SumOPMeasure) = SumOPMeasure(vcat([m1], m2.m_k))
++(m1::SumOPMeasure, m2::OPMeasure) = SumOPMeasure(vcat(m1.m_k, [m2]))
++(m1::SumOPMeasure, m2::SumOPMeasure) = SumOPMeasure(vcat(m1.m_k, m2.m_k))
+
+function getindex(m::SumOPMeasure, x)
+    t = 0
+    for measure in m.m_k
+        if x in axes(measure)
+            t += measure[x]
+        end
+    end
+    t # TODO: should this be consistent with other measures in that indexing out of support throws error?
+end
+sum(m::SumOPMeasure) = sum(map(sum, m.m_k))
+
+
+m_op(m::ChebyshevUMeasure) = chebyshevu(m.a..m.b)
+m_op(m::JacobiMeasure) = jacobi(m.α, m.β, m.a..m.b)
+
++(m::ChebyshevUMeasure, x::Real) = ChebyshevUMeasure(m.a+x, m.b+x, m.ψ_k)
++(m::JacobiMeasure, x::Real) = JacobiMeasure(m.a+x, m.b+x, m.α, m.β, m.ψ_k)
+
+# *(m::ChebyshevUMeasure, x::Real) = ChebyshevUMeasure(x * m.a, x * m.b, x*m.ψ_k)
+# *(m::JacobiMeasure, x::Real) = JacobiMeasure(x * m.a, x * m.b, m.α, m.β, x*m.ψ_k)
+
+
++(x::Real, m::ACMeasure) = m+x
+# *(x::Real, m::ACMeasure) = m*x
+-(x::Real, m::ACMeasure) = x + (-1)*m
+-(m::ACMeasure, x::Real) = m + -x
+
+
+
 

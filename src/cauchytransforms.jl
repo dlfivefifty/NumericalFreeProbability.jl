@@ -1,23 +1,16 @@
 export cauchytransform, dcauchytransform
 
-const x_axes = axes(ChebyshevU(), 1)
-
-function cauchytransform(z::Number, m::ChebyshevUMeasure)
-    inv.(M_ab_inv(z,m.a,m.b) .- x_axes') * Weighted(ChebyshevU()) * m.ψ_k / m.Z
+function cauchytransform(z::Number, m::OPMeasure)
+    inv.(z .- axes(m_op(m), 1)') * Weighted(m_op(m)) * m.ψ_k
 end
 
-function cauchytransform(z::Vector{T}, m::ChebyshevUMeasure) where T<:Number
-    (inv.(M_ab_inv.(z,m.a,m.b) .- x_axes') * Weighted(ChebyshevU()) * m.ψ_k / m.Z)[:]
+function cauchytransform(z::AbstractVector{T}, m::OPMeasure) where T<:Number
+    (inv.(z .- axes(m_op(m), 1)') * Weighted(m_op(m)) * m.ψ_k)[:]
 end
 
-function cauchytransform(z::Number, m::JacobiMeasure)
-    inv.(M_ab_inv(z,m.a,m.b) .- x_axes') * Weighted(Jacobi(m.α, m.β)) * m.ψ_k / m.Z
+function cauchytransform(z::Number)
+    f(m) = cauchytransform(z, m)
 end
-
-function cauchytransform(z::Vector{T}, m::JacobiMeasure) where T<:Number
-    (inv.(M_ab_inv.(z,m.a,m.b) .- x_axes') * Weighted(Jacobi(m.α, m.β)) * m.ψ_k / m.Z)[:]
-end
-
 
 function dcauchytransform(z::Number, m::AbstractJacobiMeasure)
     G(z::Number) = cauchytransform(z, m)
@@ -31,4 +24,16 @@ function dcauchytransform(z::Number, m::AbstractJacobiMeasure)
     end
     w = ForwardDiff.jacobian(G_real, [real(z), imag(z)])
     w[1,1] + w[2,1] * im
+end
+
+function dcauchytransform(z::Number)
+    f(m) = dcauchytransform(z, m)
+end
+
+function cauchytransform(z::Number, m::SumOPMeasure)
+    sum(map(cauchytransform(z), m.m_k))
+end
+
+function dcauchytransform(z::Number, m::SumOPMeasure)
+    sum(map(dcauchytransform(z), m.m_k))
 end
