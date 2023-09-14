@@ -14,7 +14,7 @@ end
 
 function dcauchytransform(z::Number, m::AbstractJacobiMeasure)
     G(z::Number) = cauchytransform(z, m)
-    function G_real(x)
+    function G_real(x::Vector{T}) where T<:Number
         z = x[1] + x[2] * im
         w = G(z)
         [real(w), imag(w)]

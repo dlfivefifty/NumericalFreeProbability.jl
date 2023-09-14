@@ -201,7 +201,7 @@ function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::Abstr
     q_0hz = Vector(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
 
     T_nep(n::Int) = (A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4))
-    invT = Vector{Matrix{T3}}(undef, N)
+
     invT = inv.(T_nep.(1:N))
 
     ans = Vector{Vector{T3}}(undef, length(y))
@@ -216,7 +216,16 @@ function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::Abstr
     ans
 end
 
-
+function beynupdate!(invT::Vector{Matrix{T1}}, yv_a::AbstractVector{T2}, m::Int, ans::Vector{Vector{T1}}, svtol=10^-12) where {T1<:Number, T2<:Complex}
+    V̂ = randn(ComplexF64,m,m_f(m))
+    for (i,yv) in enumerate(yv_a)
+        f(M::AbstractMatrix) = invbl!(M, yv)
+        map(f, invT)
+        A_0N = r/N * sum(invT .* exp2πimjN) * V̂
+        A_1N = r^2/N * sum(invT .* exp2πimjN .^ 2) * V̂
+        ans[i] = H.(beynsvd(A_0N, A_1N, svtol))
+    end
+end
 
 # function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
 #     Random.seed!(163) # my favourite integer
