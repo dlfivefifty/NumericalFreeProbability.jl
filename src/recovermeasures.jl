@@ -3,7 +3,7 @@ export freeaddition, recovermeasure_sqrt, pointcloud_sqrt, support_sqrt, ⊞,
 
 const NumberOrVectorNumber = Union{Number, AbstractVector{T}} where T<:Number
 
-unitcirclenodes(T, n) = [exp(π * (convert(T, 2k)/n-1)im) for k=0:n-1]
+unitcirclenodes(T, n) = [cispi(convert(T, 2k)/n-1) for k=0:n-1]
 
 """
 Compute the point cloud required to approximate the Cauchy transform G_a⊞b, where the output measure is square root decaying
