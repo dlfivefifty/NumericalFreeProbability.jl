@@ -7,8 +7,8 @@ sc = Semicircle()
 mp4 = ChebyshevUMeasure(1, 9, x -> 2/(π*x))
 
 # jacobi measure
-jm = normalize(JacobiMeasure(-2, 2, 1, 2))
-jm2 = normalize(JacobiMeasure(-1, 1, 2, 2, x -> 7x^2 + 1))
+jm = normalized(JacobiMeasure(-2, 2, 1, 2))
+jm2 = normalized(JacobiMeasure(-1, 1, 2, 2, x -> 7x^2 + 1))
 
 @testset "invcauchytransform single" begin
     t1 = [0+0.5im, -3]

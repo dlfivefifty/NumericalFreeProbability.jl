@@ -1,7 +1,7 @@
-export PointMeasure
-export cauchytransform_point, dcauchytransform_point, d2cauchytransform_point, invcauchytransform_point, support_sqrt_point
-export pointcloud_sqrt_point, prunepoints_multivalued
-export support_sqrt_point, recovermeasure_multiplysupportedsqrt, freeaddition_sqrt_point
+# export PointMeasure
+# export cauchytransform_point, dcauchytransform_point, d2cauchytransform_point, invcauchytransform_point, support_sqrt_point
+# export pointcloud_sqrt_point, prunepoints_multivalued
+# export support_sqrt_point, recovermeasure_multiplysupportedsqrt, freeaddition_sqrt_point
 
 
 using FFTW, SpecialMatrices

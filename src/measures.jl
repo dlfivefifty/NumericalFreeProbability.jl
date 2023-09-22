@@ -1,6 +1,6 @@
 export ACMeasure, AbstractJacobiMeasure,
             ChebyshevUMeasure, JacobiMeasure, Semicircle, SquareRootMeasure, SumOPMeasure,
-            normalize, m_op
+            normalized, m_op
 abstract type ACMeasure{T} <: AbstractQuasiArray{T,1} end
 abstract type OPMeasure{T} <: ACMeasure{T} end
 abstract type AbstractJacobiMeasure{T} <: OPMeasure{T} end
@@ -73,8 +73,8 @@ sum(m::JacobiMeasure) = sum(orthogonalityweight(jacobi(m.α, m.β, m.a..m.b))) *
 Semicircle(R::Real) = ChebyshevUMeasure(-R, R, 2*vcat([1], zeros(∞))/(π*R))
 Semicircle() = Semicircle(2)
 
-normalize(m::ChebyshevUMeasure) = ChebyshevUMeasure(m.a, m.b, m.ψ_k/sum(m))
-normalize(m::JacobiMeasure) = JacobiMeasure(m.a, m.b, m.α, m.β, m.ψ_k/sum(m))
+normalized(m::ChebyshevUMeasure) = ChebyshevUMeasure(m.a, m.b, m.ψ_k/sum(m))
+normalized(m::JacobiMeasure) = JacobiMeasure(m.a, m.b, m.α, m.β, m.ψ_k/sum(m))
 
 struct SumOPMeasure{T<:Real} <: ACMeasure{T}
     m_k::Vector{OPMeasure{T}}
