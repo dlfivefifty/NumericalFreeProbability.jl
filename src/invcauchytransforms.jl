@@ -104,7 +104,7 @@ end
 
 function beyn(A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14) where T <: AbstractArray
     Random.seed!(163) # my favourite integer
-    m = size(A1)[1]; C = 0:N-1
+    m = size(A1)[1]-1; C = 0:N-1
     # V̂ = SMatrix{m,m}(randn(ComplexF64,m,m))
     # exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
     # Hrexp2πimjN = @. H(r * exp2πimjN)
@@ -122,19 +122,26 @@ function beyn(A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; 
 
     q_0hz = Vector(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
 
-    T_nep(n::Int) = (A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4))
-
+    function T_nep(n::Int)
+        ans = (A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4))
+        ans[setdiff(1:end, 1), setdiff(1:end, 2)]
+    end
     # q_0 = z -> inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞))
     #  = z -> A1 + H(z)*A2 + q_0(H(z)) * A3 + H(z) * q_0(H(z)) * A4
     # display(eigen(testT_nep(0.5000000000001981 - 0.500000000000016im)))
     invT = inv.(T_nep.(1:N))
-    # println("----------------------")
-    # show(T_nep(1))
-    # println("----------------------")
-    # display(Hrexp2πimjN[1])
+
+    # display(T_nep(1))
+    # display(eigen(T_nep(1)))
+
+    # display(T_nep(1) * eigvecs(T_nep(1))[:,3])
+    # q_0(z) = inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞))
+    # Ttest = z::Number -> A1 + H(z) * A2 + q_0(H(z)) * A3 + H(z) * q_0(H(z)) * A4
+    # display(eige(Ttest(0.5 - 0.5im)))
+
     A_0N = r/N * sum(Vector(invT .* exp2πimjN)) * V̂     # TODO: make this not bad
     A_1N = r^2/N * sum(Vector(invT .* exp2πimjN .^ 2)) * V̂
-    display(beynsvd(A_0N, A_1N, svtol))
+
     H.(beynsvd(A_0N, A_1N, svtol))
 end
 
