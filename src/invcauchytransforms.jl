@@ -62,70 +62,86 @@ function invcauchytransform(y::T, m::OPMeasure; maxterms=20, tol=10^-9, N=1000, 
     end
     f_k = m.ψ_k[1:n-1]; last = m.ψ_k[n]
     A1, A2, A3, A4, K = creatematrices(y, OP, f_k, last, n)
-    function q_0(z::AbstractVector{T}) where {T<:Number}
-        (inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(T, ∞)))[:]
-    end
     functionlist = getconformalmaps(y, (m.a, m.b))
     inverses = Vector{Complex{real(T)}}()
     for H in functionlist
-        λ = beyn(A1, A2, A3, A4, OP, H; r, N, svtol=10^-10)
+        λ = beyn(A1, A2, A3, A4, OP, H; r, N, svtol=10^-14)
         for z in λ
             if all(abs.(z .- inverses) .> 10^-10)
                 push!(inverses, z)
             end
         end
     end
-    inverses
+    filterinverses!(inverses, y, m)
 end
 
 function invcauchytransform_1(y::T, m::OPMeasure; N=1000, r=0.9) where T<:Number
     OP = m_op(m)
     last = m.ψ_k[1]
-    function q_0(z::AbstractVector{T}) where {T<:Number}
-        (inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(T, ∞)))[:]
-    end
     functionlist = getconformalmaps(y, (m.a, m.b))
     inverses = Vector{Complex{real(T)}}()
     for H in functionlist
-        λ = beyn(y, convert(T,last), OP, H; r, N, svtol=10^-12)
+        λ = beyn(y, convert(T,last), OP, H; r, N, svtol=10^-14)
         for z in λ
             if all(abs.(z .- inverses) .> 10^-10)
                 push!(inverses, z)
             end
         end
     end
-    inverses
+    filterinverses!(inverses, y, m)
 end
 
 function invcauchytransform_1(y::AbstractVector{T}, m::OPMeasure; N=1000, r=0.9) where T<:Number
     OP = m_op(m)
     last = m.ψ_k[1]
-    function q_0(z::AbstractVector{T}) where {T<:Number}
-        (inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(T, ∞)))[:]
-    end
     H(z::Number) = im * (I + z) * inv(I - z)
-    beyn_multi(y, last, OP, H; r, N, svtol=10^-12)
+    inverses = beyn_multi(y, last, OP, H; r, N, svtol=10^-14)
+    filterinverses!(inverses, y, m)
 end
 
 
 # at the moment, jacobi(2,2,-1..1) isa OrthogonalPolynomial is false...
 
-function beyn(A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12) where T <: AbstractArray
+function beyn(A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14) where T <: AbstractArray
     Random.seed!(163) # my favourite integer
     m = size(A1)[1]; C = 0:N-1
-    V̂ = SMatrix{m,m}(randn(ComplexF64,m,m))
+    # V̂ = SMatrix{m,m}(randn(ComplexF64,m,m))
+    # exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
+    # Hrexp2πimjN = @. H(r * exp2πimjN)
+    # q_0hz = (inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))[:]
+    # T_nep(n::Int) = A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4)
+    # array_T = LazyArray(@~ @. T_nep(1:N))
+    # invTV = BroadcastArray(\, array_T, Ref(V̂)) .* exp2πimjN
+    # A_0N = r/N * sum(invTV)
+    # A_1N = r^2/N * sum(invTV .* exp2πimjN)
+    # H.(beynsvd(A_0N, A_1N, svtol))
+
+    V̂ = randn(ComplexF64,m,m_f(m))
     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
-    Hrexp2πimjN = @. H(r * exp2πimjN)
-    q_0hz = (inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))[:]
-    T_nep(n::Int) = A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4)
-    array_T = LazyArray(@~ @. T_nep(1:N))
-    invTV = BroadcastArray(\, array_T, Ref(V̂)) .* exp2πimjN
-    A_0N = r/N * sum(invTV)
-    A_1N = r^2/N * sum(invTV .* exp2πimjN)
+    Hrexp2πimjN = LazyArray(@~ @. H(r * exp2πimjN))
+
+    q_0hz = Vector(inv.(Hrexp2πimjN .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞)))
+
+    T_nep(n::Int) = (A1 + Hrexp2πimjN[n] * A2 + q_0hz[n] * (A3 + Hrexp2πimjN[n] * A4))
+
+    # q_0 = z -> inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(∞))
+    #  = z -> A1 + H(z)*A2 + q_0(H(z)) * A3 + H(z) * q_0(H(z)) * A4
+    # display(eigen(testT_nep(0.5000000000001981 - 0.500000000000016im)))
+    invT = inv.(T_nep.(1:N))
+    display(T_nep(1))
+    display(cond(T_nep(1)))
+    # println("----------------------")
+    # show(T_nep(1))
+    # println("----------------------")
+    # display(Hrexp2πimjN[1])
+    A_0N = r/N * sum(Vector(invT .* exp2πimjN)) * V̂     # TODO: make this not bad
+    A_1N = r^2/N * sum(Vector(invT .* exp2πimjN .^ 2)) * V̂
+    display(beynsvd(A_0N, A_1N, svtol))
     H.(beynsvd(A_0N, A_1N, svtol))
 end
 
-function beyn(y::T, last::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12) where T <: Number
+
+function beyn(y::T, last::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14) where T <: Number
     Random.seed!(163) # my favourite integer
     C = 0:N-1
     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
@@ -153,16 +169,14 @@ function invcauchytransform(y::AbstractVector{T}, m::OPMeasure; maxterms=20, tol
     testval = -one(eltype(y))im
     f_k = m.ψ_k[1:n-1]; last = m.ψ_k[n]
     A1, A2, A3, A4, K = creatematrices(testval, OP, f_k, last, n)
-    function q_0(z::AbstractVector{T}) where {T<:Number}
-        (inv.(z .- axes(OP, 1)') * Weighted(OP) * vcat([1], zeros(T, ∞)))[:]
-    end
     H = z::Number -> im * (2 * inv(1-z)-1)
-    beyn_multi(y, A1, A2, A3, A4, OP, H; r, N, svtol=10^-10, testval, K)
+    inverses = beyn_multi(y, A1, A2, A3, A4, OP, H; r, N, svtol=10^-14, testval, K)
+    filterinverses!(inverses, y, m)
 end
 
-# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
+# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
 #     Random.seed!(163) # my favourite integer
-#     m = size(A1)[1]; C = 0:N-1
+#     m = size(A1)[1]; C = 0:N-1f
 #     V̂ = randn(ComplexF64,m,m)
 #     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
 #     Hrexp2πimjN = LazyArray(@~ @. H(r * exp2πimjN))
@@ -189,9 +203,9 @@ end
 #     end
 #     ans
 # end
-m_f(x::Int) = x < 6 ? x : round(log2(x))+3
+m_f(x::Int) = x < 6 ? x : Int(round(log2(x)))+3
 
-function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
+function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
     Random.seed!(163) # my favourite integer
     m = size(A1)[1]; C = 0:N-1
     V̂ = randn(ComplexF64,m,m_f(m))
@@ -209,14 +223,14 @@ function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::Abstr
     for (i,yv) in enumerate(yv_a)
         f(M::AbstractMatrix) = invbl!(M, yv)
         map(f, invT)
-        A_0N = r/N * sum(invT .* exp2πimjN) * V̂
-        A_1N = r^2/N * sum(invT .* exp2πimjN .^ 2) * V̂
+        A_0N = r/N * sum(Vector(invT .* exp2πimjN)) * V̂     # TODO: make this not bad
+        A_1N = r^2/N * sum(Vector(invT .* exp2πimjN .^ 2)) * V̂
         ans[i] = H.(beynsvd(A_0N, A_1N, svtol))
     end
     ans
 end
 
-function beynupdate!(invT::Vector{Matrix{T1}}, yv_a::AbstractVector{T2}, m::Int, ans::Vector{Vector{T1}}, svtol=10^-12) where {T1<:Number, T2<:Complex}
+function beynupdate!(invT::Vector{Matrix{T1}}, yv_a::AbstractVector{T2}, m::Int, ans::Vector{Vector{T1}}, svtol=10^-14) where {T1<:Number, T2<:Complex}
     V̂ = randn(ComplexF64,m,m_f(m))
     for (i,yv) in enumerate(yv_a)
         f(M::AbstractMatrix) = invbl!(M, yv)
@@ -227,7 +241,7 @@ function beynupdate!(invT::Vector{Matrix{T1}}, yv_a::AbstractVector{T2}, m::Int,
     end
 end
 
-# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
+# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14, testval=-im, K::Real=1) where {T3<: Number, T2<:Complex, T<:AbstractArray{T3}}
 #     Random.seed!(163) # my favourite integer
 #     m = size(A1)[1]; C = 0:N-1
 #     V̂ = randn(ComplexF64,m,m)
@@ -262,7 +276,7 @@ end
 # end
 
 
-# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12, testval=-im, K=1) where {T<:AbstractArray, T2<:Complex}
+# function beyn_multi(y::AbstractVector{T2}, A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14, testval=-im, K=1) where {T<:AbstractArray, T2<:Complex}
 #     Random.seed!(163) # my favourite integer
 #     m = size(A1)[1]; C = 0:N-1
 #     V̂ = SMatrix{m,m}(randn(ComplexF64,m,m))
@@ -283,7 +297,7 @@ end
 #     ans
 # end
 
-function beyn_multi(y::AbstractVector{T}, last::T2, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-12) where {T2<:Number, T<:Complex}
+function beyn_multi(y::AbstractVector{T}, last::T2, OP::AbstractQuasiMatrix, H::Function; r=0.9, N=1000, svtol=10^-14) where {T2<:Number, T<:Complex}
     Random.seed!(163) # my favourite integer
     C = 0:N-1
     exp2πimjN = LazyArray(@~ @. cispi(2*C/N))
@@ -306,26 +320,33 @@ end
 function creatematrices(y::T, OP::AbstractQuasiArray, f_k::AbstractVector{T2}, last::T2, n::Int) where {T<:Number, T2<:Real}
     J = jacobimatrix(OP)
     A = Matrix(J[1:n-1,1:n-1]'); A[end,:] -= f_k ./ last .* J[n, n-1]
-    b = zeros(T, n-1); b[end] = y/last * J[n, n-1]; b[1] = sum(orthogonalityweight(OP))
+    b = zeros(T, n-1); b[end] = y/last * J[n, n-1]; b[1] += sum(orthogonalityweight(OP))
     Σ = zeros(n-1); Σ[1] += 1
     U = complex(T)
-    A1 = MMatrix{n,n,U}([0 Σ';b A])
-    A2 = MMatrix{n,n,U}(Diagonal([-(i != 0) for i=0:n-1]))
-    A3 = MMatrix{n,n,U}([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
-    A4 = MMatrix{n,n,U}([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
+    # A1 = MMatrix{n,n,U}([0 Σ';b A])
+    # A2 = MMatrix{n,n,U}(Diagonal([-(i != 0) for i=0:n-1]))
+    # A3 = MMatrix{n,n,U}([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
+    # A4 = MMatrix{n,n,U}([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
+    A1 = U.([0 Σ';b A])
+    A2 = U.(diagm([-(i != 0) for i=0:n-1]))
+    A3 = U.([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
+    A4 = U.([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
+    display(A)
     A1, A2, A3, A4, J[n, n-1]/last
 end
 
-function beynsvd(A_0N::AbstractMatrix, A_1N::AbstractMatrix, svtol=10^-10)
+function beynsvd(A_0N::AbstractMatrix, A_1N::AbstractMatrix, svtol=10^-14)
     V, S, W = svd(A_0N)
-    k = m = size(A_0N)[1]
+    m = size(A_0N)[1]
+    k = m_f(m)
     while k >= 1 && abs(S[k]) < svtol
         k -= 1
     end
-    V_0 = V[1:m, 1:k]
-    W_0 = W[1:m, 1:k]
+    V_0 = V[:, 1:k]
+    W_0 = W[:, 1:k]
     S_0 = Diagonal(S[1:k])
-    eigvals(V_0' * A_1N * W_0 * S_0^-1)
+    ans = eigvals(V_0' * A_1N * W_0 * S_0^-1)
+    filter!(inunitdisk(eltype(S_0)), ans)
 end
 
 function invbl!(Ainv::AbstractMatrix{T}, y::Number) where T<:Number
@@ -346,3 +367,7 @@ function invertpolynomial(P, z::Number)
     eigvals(SpecialMatrices.Companion(P1))
 end
 
+function filterinverses!(inverses::Vector{T}, y::Number, m::OPMeasure, tol=10^-4) where T<:Number
+    testinverse = z::T -> abs(cauchytransform(z, m) - y) < tol
+    filter!(testinverse, inverses)
+end
