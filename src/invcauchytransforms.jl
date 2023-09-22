@@ -128,8 +128,6 @@ function beyn(A1::T, A2::T, A3::T, A4::T, OP::AbstractQuasiMatrix, H::Function; 
     #  = z -> A1 + H(z)*A2 + q_0(H(z)) * A3 + H(z) * q_0(H(z)) * A4
     # display(eigen(testT_nep(0.5000000000001981 - 0.500000000000016im)))
     invT = inv.(T_nep.(1:N))
-    display(T_nep(1))
-    display(cond(T_nep(1)))
     # println("----------------------")
     # show(T_nep(1))
     # println("----------------------")
@@ -331,7 +329,6 @@ function creatematrices(y::T, OP::AbstractQuasiArray, f_k::AbstractVector{T2}, l
     A2 = U.(diagm([-(i != 0) for i=0:n-1]))
     A3 = U.([0 zeros(n-1)';A*Σ zeros(n-1, n-1)])
     A4 = U.([0 zeros(n-1)';-Σ zeros(n-1, n-1)])
-    display(A)
     A1, A2, A3, A4, J[n, n-1]/last
 end
 
