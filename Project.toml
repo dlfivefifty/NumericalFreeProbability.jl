@@ -20,3 +20,6 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 SpecialMatrices = "928aab9d-ef52-54ac-8ca1-acd7ca42c160"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+SingularIntegrals = "0.2"
