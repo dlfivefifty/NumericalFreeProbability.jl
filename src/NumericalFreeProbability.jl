@@ -14,6 +14,7 @@ import LinearAlgebra: normalize
 # affine transformations
 M_ab(x::Number,a::Real,b::Real) = (a + b)/2 + (b - a) * x/2 # maps from (-1, 1) to (a, b)
 M_ab_inv(y::Number,a::Real,b::Real) = (2y - (a + b))/(b - a) # maps from (a, b) to (-1, 1)
+dM_ab(x::Number,a::Real,b::Real) = (b - a) /2
 
 include("measures.jl")
 include("cauchytransforms.jl")

@@ -1,4 +1,4 @@
-export freeaddition, recovermeasure_sqrt, pointcloud_sqrt, support_sqrt, ⊞,
+export freeaddition, recovermeasure_sqrt, pointcloud_sqrt, support_sqrt_single, ⊞,
                 NumberOrVectorNumber, pairsum, prunepoints_multivalued
 
 const NumberOrVectorNumber = Union{Number, AbstractVector{T}} where T<:Number
@@ -60,7 +60,7 @@ function bisection(f::Function, x_l::Real, x_r::Real; tol=10^-12, maxits = 40)
     if !(y_l > 0) ⊻ (f(x_r) > 0)
         return nothing # cauchy transform is monotone
     end
-    for i=1:maxits
+    for _=1:maxits
         x_m = (x_l + x_r)/2
         y_m = f(x_m)
         if abs(y_m) < tol
@@ -107,7 +107,7 @@ Parameters:
     maxits: Int
             - Maximum number of iterations for bisection.
 """
-function support_sqrt(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a, m_b; tol=10^-13, maxits=60)
+function support_sqrt_single(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a, m_b; tol=10^-13, maxits=60)
     a_0 = max(G_a(m_a.a), G_b(m_b.a))
     b_0 = min(G_a(m_a.b), G_b(m_b.b))
     dInvG_a = z::Number -> inv.(dG_a(InvG_a(z)[1]))
@@ -121,7 +121,6 @@ function support_sqrt(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a, m_b; tol=10^-13
 end
 
 
-   
 
 
 
@@ -135,7 +134,7 @@ Parameters:
         - Respectively, the inverse Cauchy transform of μ_a and μ_b.
     
     supp_c: Tuple{Real}
-        - Support of the measure of the convolution μ_c. Can be calculated from support_sqrt()
+        - Support of the measure of the convolution μ_c. Can be calculated from support_sqrt_single()
 
     y_m: Array{Complex}
         - Sampling points for solving the Least-squares problem.
@@ -228,11 +227,111 @@ function freeaddition(m_a::ChebyshevUMeasure, m_b::ChebyshevUMeasure; m=10, maxt
     dG_a = z::NumberOrVectorNumber -> isapprox(z, m_a.a) || isapprox(z, m_a.b) ? real(dcauchytransform(z+eps()^2 *im, m_a)) : dcauchytransform(z, m_a)
     dG_b = z::NumberOrVectorNumber -> isapprox(z, m_b.a) || isapprox(z, m_b.b) ? real(dcauchytransform(z+eps()^2 *im, m_b)) : dcauchytransform(z, m_b)
     
-    supp_c = support_sqrt(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a, m_b; tol=tolbisect, maxits=maxitsbisect)
+    supp_c = support_sqrt_single(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a, m_b; tol=tolbisect, maxits=maxitsbisect)
     y_M = pointcloud_sqrt(G_a, G_b, supp_c, InvG_b; m)
     preimages, images = prunepoints_multivalued(y_M, InvG_a, InvG_b)
     ψ_c_k = recovermeasure_sqrt(supp_c, preimages, images)
     ChebyshevUMeasure(supp_c[1][1], supp_c[1][2], vcat(ψ_c_k, zeros(∞)))
 end
 
-⊞(m_a::ChebyshevUMeasure, m_b::ChebyshevUMeasure) = freeaddition(m_a::ChebyshevUMeasure, m_b::ChebyshevUMeasure)
+⊞(m_a::Measure, m_b::Measure) = freeaddition(m_a::Measure, m_b::Measure)
+
+
+function recovermeasure_multiplysupportedsqrt(supp_c, preimages, images, N=20)
+    n = length(images)
+    A = Complex.(zeros(n, N*length(supp_c))) # lazy convert to complex
+    for (i, s) in enumerate(supp_c)
+        A[:,N*(i-1)+1:N*i] = [Jinv_p(M_ab_inv(preimages[j],s[1],s[2]))^k for j=1:n, k=1:N]
+    end
+
+    V = [real.(A);imag.(A)]
+    f = [real.(images);imag.(images)]
+    Q, R̂ = qr(V)
+    Q̂ = Q[:,1:length(supp_c) * N]
+    sol = R̂ \ Q̂'f ./ pi
+    [sol[(i-1)*N+1:i*N] for i=1:length(supp_c)]
+end
+
+
+
+
+function findallroots(f, x_l, x_r; tol=10^-6, maxits = 40, step=0.01)
+    points = []
+    sign_previous = 2
+    sgn_p = x -> x > 0
+    for x = x_l:step:x_r
+        if sign_previous != sgn_p(f(x))
+            sign_previous = sgn_p(f(x))
+            push!(points, x)
+        end
+    end
+    roots = []
+    n = length(points) - 1
+    for i=1:n
+        push!(roots, bisection(f, points[i], points[i+1]; tol, maxits))
+    end
+    roots
+end
+
+# a is the square root measure, b is the point measure
+function support_multiplysupportedsqrt(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a::Measure, m_b::Measure; tol=10^-6, maxits=30)
+    dInvG_a = z -> 1 ./ (dG_a.(InvG_a(z)))
+    dInvG_b = z -> 1 ./ (dG_b.(InvG_b(z)))
+    InvG_c = z -> InvG_a(z) .+ InvG_b(z) .- 1/Complex(z)
+    dInvG_c = z -> dInvG_a(z) .+ dInvG_b(z) .+ 1/Complex(z)^2 # TODO: subject to catastrophic cancellation when z is close to 0 in multi cut case...
+    dInvG_c_real = z -> real.(dInvG_c(z))
+
+    number_of_atoms = length(m_b.a)
+
+    a_0 = real(G_a(minimum(axes(m_a))))
+    b_0 = real(G_a(maximum(axes(m_a))))
+    support_points = []
+
+    for i=1:number_of_atoms
+        if i == 1
+            test = z -> begin
+                a = dInvG_c_real(z)[1]
+                if isnan(a)
+                    return -1/z^2
+                end
+                a
+            end
+        else
+            test = z -> dInvG_c_real(z)[i]
+        end
+        s=10^-3
+        roots = findallroots(test, a_0, -s; tol, maxits)
+        for k in roots
+            if k !== nothing
+                push!(support_points, InvG_c(k)[i])
+            end
+        end
+        roots = findallroots(test, s, b_0; tol, maxits)
+        for k in roots
+            if k !== nothing
+                push!(support_points, InvG_c(k)[i])
+            end
+        end
+    end
+    support_points = sort(real.(support_points))
+    [(support_points[2*i-1], support_points[2*i]) for i=1:length(support_points)÷2]
+end
+
+
+# some performance issues
+
+function freeaddition(m_a::OPMeasure, m_b::PointMeasure; m=40, tolbisect = 10^-6, maxitsbisect=30, N=20)
+    G_a = z -> cauchytransform(z, m_a)
+    G_b = z -> cauchytransform(z, m_b)
+    InvG_a = z -> invcauchytransform(z, m_a)
+    InvG_b = z -> invcauchytransform(z, m_b)
+    dG_a = z -> dcauchytransform(z, m_a)
+    dG_b = z -> dcauchytransform(z, m_b)
+    supp_c = support_multiplysupportedsqrt(G_a, G_b, InvG_a, InvG_b, dG_a, dG_b, m_a, m_b; tol=tolbisect, maxits=maxitsbisect)
+
+    y_M = pointcloud_sqrt(G_a, G_b, supp_c, InvG_b; m)
+    preimages, images = prunepoints_multivalued(y_M, InvG_a, InvG_b)
+    ψ_c_k_i = recovermeasure_multiplysupportedsqrt(supp_c, preimages, images, N)
+    
+    SumOPMeasure([ChebyshevUMeasure(supp_c[i][1], supp_c[i][2], vcat(ψ_c_k_i[i], zeros(∞))) for i in eachindex(supp_c)])
+end
