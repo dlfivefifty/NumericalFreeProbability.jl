@@ -4,8 +4,5 @@ using NumericalFreeProbability, Test, LinearAlgebra
 	include("measures.jl")
 	include("cauchytransforms.jl")
 	include("invcauchytransforms.jl")
-	include("recovermeasures.jl")
-	
-	#include("SqrtMeasures.jl")
-	#include("PointMeasures.jl")
+	# include("recovermeasures.jl")
 end # testset
