@@ -258,13 +258,13 @@ end
 function realinvcauchytransform(y::Real, m::Measure, region::Int)
     supp = support(m)
     G = z::Real -> cauchytransform(z, m)
-    ε = eps()
+    ε = 100eps()
     if region == 1
         if y ≤ 0
-            inverse = bisection(z::Real -> G(inv(z)+1+supp[1][1]) - y, -1, -ε, tol=eps(), maxits = 60, forcereturn=true)
+            inverse = bisection(z::Real -> G(inv(z)+1+supp[1][1]) - y, -1+ε, -ε, tol=eps(), maxits = 60, forcereturn=true)
             inverse = inv(inverse)+1+supp[1][1]
         else
-            inverse = bisection(z::Real -> G(inv(z)-1+supp[end][2]) - y, ε, 1, tol=eps(), maxits = 60, forcereturn=true)
+            inverse = bisection(z::Real -> G(inv(z)-1+supp[end][2]) - y, ε, 1-ε, tol=eps(), maxits = 60, forcereturn=true)
             inverse = inv(inverse)-1+supp[end][2]
         end
     else
