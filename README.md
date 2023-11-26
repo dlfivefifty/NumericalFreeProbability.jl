@@ -25,7 +25,7 @@ plot(xv, sc[xv])
 plot!(xv, pm[xv])
 plot!(xv, u[xv])
 ```
-![Free additive convolution of a semicircle law and a point measure](semicirclepoint.png)
+![image](https://github.com/dlfivefifty/NumericalFreeProbability.jl/assets/100195398/3c3b9e14-93ea-467c-a110-7e3ac54c8bb5)
 
 
 <!-- jm = normalize(JacobiMeasure(-1,2, 0.6, 0.4, x -> 1 + x^2)) -->
@@ -42,4 +42,4 @@ for _=1:10
 end
 ```
 
-![Repeated free addition of a multi-cut square-root measure](multisqrtcentrallimit.png)
+![image](https://github.com/dlfivefifty/NumericalFreeProbability.jl/assets/100195398/debea82d-7a3e-43df-b292-9f7feb9084c9)
