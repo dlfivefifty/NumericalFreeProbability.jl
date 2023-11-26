@@ -88,9 +88,3 @@ function diag(m, n)
     Diagonal(sample(m, n))
 end
 
-n=1000
-Q = haar(n)
-A = diag(u, n)
-B = diag(u, n)
-C = Q*A*Q' + B
-histogram(real.(eigvals(C)), normalize=true, bins=50)
