@@ -268,7 +268,7 @@ function realinvcauchytransform(y::Real, m::Measure, region::Int)
             inverse = inv(inverse)-1+supp[end][2]
         end
     else
-        inverse = bisection(z::Real -> G(z) - y, supp[region-1][2], supp[region][1], tol=eps(), maxits = 60, forcereturn=true)
+        inverse = bisection(z::Real -> G(z) - y, supp[region-1][2]+ε, supp[region][1]-ε, tol=eps(), maxits = 60, forcereturn=true)
     end
     inverse
 end

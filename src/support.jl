@@ -55,17 +55,18 @@ function additive_support(G_a, G_b, dG_a, dG_b, m_a::Measure{T}, m_b::Measure{T}
     invG_c(v1, v2) = z::Number -> invG_a(v1)(z)+ invG_b(v2)(z) - inv(z)
     dinvG_c(v1, v2) = z::Number -> real(dinvG_a(v1)(z) + dinvG_b(v2)(z) + inv(z^2))
 
-    a = max(G_a(supp_a[1][1] - ε), G_b(supp_b[1][1] - ε))
-    b = min(G_a(supp_a[end][2] + ε), G_b(supp_b[end][2] + ε))
+    max_bisection_range = 10 # for safety
+    a = max(G_a(supp_a[1][1] - ε), G_b(supp_b[1][1] - ε), -max_bisection_range)
+    b = min(G_a(supp_a[end][2] + ε), G_b(supp_b[end][2] + ε), max_bisection_range)
 
     ξ_a = bisection(dinvG_c(1,1), a, 0-ε; tol, maxits, forcereturn=true)
     ξ_b = bisection(dinvG_c(1,1), 0+ε, b; tol, maxits, forcereturn=true)
-    
+
     push!(support_points, real(invG_c(1,1)(ξ_a)))
     push!(support_points, real(invG_c(1,1)(ξ_b)))
     for i = 2:length(supp_a)
-        a = max(G_a(supp_a[i][1] - ε), G_b(supp_b[1][1] - ε))
-        b = min(G_a(supp_a[i-1][2] + ε), G_b(supp_b[end][2] + ε))
+        a = max(G_a(supp_a[i][1] - ε), G_b(supp_b[1][1] - ε), -max_bisection_range)
+        b = min(G_a(supp_a[i-1][2] + ε), G_b(supp_b[end][2] + ε), max_bisection_range)
         ξ = findallroots(dinvG_c(i,1), a+ε, b-ε; tol, maxits)
         if length(ξ) == 2
             push!(support_points, real(invG_c(i,1)(ξ[1])))
@@ -73,8 +74,8 @@ function additive_support(G_a, G_b, dG_a, dG_b, m_a::Measure{T}, m_b::Measure{T}
         end
     end
     for i = 2:length(supp_b)
-        a = max(G_a(supp_a[1][1] - ε), G_b(supp_b[i][1] - ε))
-        b = min(G_a(supp_a[end][2] + ε), G_b(supp_b[i-1][2] + ε))
+        a = max(G_a(supp_a[1][1] - ε), G_b(supp_b[i][1] - ε), -max_bisection_range)
+        b = min(G_a(supp_a[end][2] + ε), G_b(supp_b[i-1][2] + ε), max_bisection_range)
         ξ = findallroots(dinvG_c(1,i), a+ε, b-ε; tol, maxits)
         if length(ξ) == 2
             push!(support_points, real(invG_c(1,i)(ξ[1])))

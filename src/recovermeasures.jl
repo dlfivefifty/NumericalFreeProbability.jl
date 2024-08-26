@@ -1,5 +1,5 @@
-export freeaddition, recovermeasure_singlyssupportedsqrt, pointcloud_sqrt, support_sqrt_single, ⊞,
-                NumberOrVectorNumber, pairsum, prunepoints_multivalued
+export freeaddition, recovermeasure, pointcloud_sqrt, ⊞,
+                NumberOrVectorNumber, pairsum, prunepoints
 
 const NumberOrVectorNumber = Union{Number, AbstractVector{T}} where T<:Number
 const NOVN = NumberOrVectorNumber
@@ -15,7 +15,7 @@ function pointcloud_sqrt(G_a::Function, G_b::Function, supp_c::Vector{Vector{T}}
 end
 
 
-function prunepoints_multivalued(points::Vector{T}, invG_a::Function, invG_b::Function) where T<:Number
+function prunepoints(points::Vector{T}, invG_a::Function, invG_b::Function) where T<:Number
     invG_c = z::Union{T, Vector{T}} -> combine_invcauchytransform(z, invG_a, invG_b)
     preimages = Vector{T}(); images = Vector{T}()
     inv_cache = invG_c(points)
@@ -78,10 +78,8 @@ function freeaddition(m_a::Measure, m_b::Measure; m=20, tolbisect = 10^-13, maxi
         invG_b = v -> z::NOVN -> invcauchytransform(z, m_b, TG_b; region=v)
     end
     supp_c = additive_support(G_a, G_b, dG_a, dG_b, m_a, m_b; tol=tolbisect, maxits=maxitsbisect)
-    
     y_M = pointcloud_sqrt(G_a, G_b, supp_c, invG_b(1:length(support(m_b))); m)
-    preimages, images = prunepoints_multivalued(y_M, invG_a(1:length(support(m_a))), invG_b(1:length(support(m_b))))
-    
+    preimages, images = prunepoints(y_M, invG_a(1:length(support(m_a))), invG_b(1:length(support(m_b))))
     if length(supp_c) == 1
         ψ_c_k = recovermeasure(supp_c, preimages, images, N)
         return ChebyshevUMeasure(supp_c[1][1], supp_c[1][2], vcat(ψ_c_k[1], zeros(∞)))
@@ -90,18 +88,24 @@ function freeaddition(m_a::Measure, m_b::Measure; m=20, tolbisect = 10^-13, maxi
     SumMeasure([ChebyshevUMeasure(supp_c[i][1], supp_c[i][2], vcat(ψ_c_k_i[i], zeros(∞))) for i in eachindex(supp_c)])
 end
 
-⊞(m_a::Measure, m_b::Measure) = freeaddition(m_a::Measure, m_b::Measure)
 
 function recovermeasure(supp_c::Vector{Vector{T2}}, preimages::Vector{T}, images::Vector{T}, N::Int=20)  where {T<:Number, T2<:Real}
-    n = length(images)
-    A = zeros(complex(T), n, N*length(supp_c))
+    n = length(images); s = length(supp_c)
+    A = zeros(complex(T), n, N*s)
     for (i, s) in enumerate(supp_c)
         A[:,N*(i-1)+1:N*i] = [Jinv_p(M_ab_inv(preimages[j],s[1],s[2]))^k for j=1:n, k=1:N]
     end
     V = [real.(A);imag.(A)]
     f = [real.(images);imag.(images)]
-    Q, R̂ = qr(V)
-    Q̂ = Q[:,1:length(supp_c) * N]
-    sol = R̂ \ Q̂'f ./ pi
-    [sol[(i-1)*N+1:i*N] for i=1:length(supp_c)]
+    # Q, R̂ = qr(V)
+    # Q̂ = Q[:,1:s * N]
+    #sol = R̂ \ Q̂'f
+    Γ = Diagonal(reshape([exp(i-N) for i=1:N, j=1:s], s*N))
+    sol = (V'V + Γ'Γ) \ V'f
+    sol ./= π
+    [sol[(i-1)*N+1:i*N] for i=1:s]
 end
+
+
+
+⊞(m_a::Measure, m_b::Measure) = freeaddition(m_a::Measure, m_b::Measure)

@@ -1,5 +1,5 @@
 export ACMeasure, AbstractJacobiMeasure,
-            ChebyshevUMeasure, JacobiMeasure, Semicircle, SquareRootMeasure, SumMeasure, PointMeasure,
+            ChebyshevUMeasure, JacobiMeasure, Semicircle, SquareRootMeasure, SumMeasure, PointMeasure, MarchenkoPastur, 
             normalize, m_op, support
 
 abstract type Measure{T} end
@@ -71,11 +71,31 @@ JacobiMeasure(a::Real, b::Real, α::Real, β::Real, k::Real) = JacobiMeasure(a, 
 JacobiMeasure(a::Real, b::Real, α::Real, β::Real) = JacobiMeasure(a, b, α, β, one)
 
 
-
-Semicircle(R::Real) = ChebyshevUMeasure(-R, R, 2*vcat([1], zeros(∞))/(π*R))
+Semicircle(R::Real, μ::Real) = ChebyshevUMeasure(-R+μ, R+μ, 2*vcat([1], zeros(∞))/(π*R))
+Semicircle(R::Real) = Semicircle(R::Real, 0)
 Semicircle() = Semicircle(2)
 
+# function MarchenkoPastur(λ::Real)
+#     if λ < 1
+#         a = (1-√λ)^2; b = (1+√λ)^2
+#         return normalize(ChebyshevUMeasure(a, b, inv))
+#     elseif λ == 1
+#         return JacobiMeasure(0, 4, 0.5, -0.5, 1/(2π))
+#     end
+#     a = (1-√λ)^2; b = (1+√λ)^2
+#     return PointMeasure([0.0], [1-inv(λ)]) + normalize(ChebyshevUMeasure(a, b, inv), inv(λ))
+# end
 
+function MarchenkoPastur(c::Real)
+    a = (1-√c)^2; b = (1+√c)^2
+    if c == 1
+        return JacobiMeasure(0, 4, 0.5, -0.5, inv(2π))
+    elseif c > 1
+        return normalize(ChebyshevUMeasure(a,b,inv))
+    else
+        return PointMeasure([0.0], [1-c]) + normalize(ChebyshevUMeasure(a,b,inv), c)
+    end
+end
 
 struct SumMeasure{T<:Real} <: Measure{T}
     m_k::Vector{Measure{T}}

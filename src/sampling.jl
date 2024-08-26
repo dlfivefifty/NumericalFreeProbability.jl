@@ -4,7 +4,7 @@ using StatsBase, SpecialFunctions
 import StatsBase: sample
 import LinearAlgebra: diag
 
-function sample(m::AbstractJacobiMeasure{T}, n; c::Real=0) where T<:Real
+function sample(m::AbstractJacobiMeasure{T}, n::Int; c::Real=0) where T<:Real
     ret = Vector{T}(undef, n)
     r = m_op(m) * m.ψ_k
     if c == 0
@@ -49,7 +49,7 @@ function sample(m::PointMeasure)
     StatsBase.sample(m.λ, Weights(m.a))
 end
 
-function sample(m::PointMeasure, n=1)
+function sample(m::PointMeasure, n::Int)
     StatsBase.sample(m.λ, Weights(m.a), n)
 end
 
@@ -59,7 +59,7 @@ function sample(m::SumMeasure{T})  where T<:Real
     sample(m.m_k[v])
 end
 
-function sample(m::SumMeasure{T}, n=1) where T<:Real
+function sample(m::SumMeasure{T}, n::Int) where T<:Real
     s = length(m.m_k)
     v = StatsBase.sample(1:s, Weights(sum.(m.m_k)), n)
     ret = Vector{T}(undef, n)
