@@ -43,3 +43,6 @@ end
 ```
 
 ![image](https://github.com/dlfivefifty/NumericalFreeProbability.jl/assets/100195398/debea82d-7a3e-43df-b292-9f7feb9084c9)
+
+## References
+Chen, J., Olver, S. *Computing Inverses of Stieltjes Transforms of Probability Measures*. https://arxiv.org/abs/2410.16178
