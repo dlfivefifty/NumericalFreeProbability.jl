@@ -1,3 +1,5 @@
+using NumericalFreeProbability
+
 
 sc = Semicircle()
 mp2 = ChebyshevUMeasure(3-2√2, 3+2√2, x -> √2/(π*x))
