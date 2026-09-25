@@ -1,7 +1,7 @@
 name = "NumericalFreeProbability"
 uuid = "68b482cb-3e29-4d42-892a-4c367d60d680"
-authors = ["Sheehan Olver <solver@mac.com>"]
 version = "0.1.0"
+authors = ["Sheehan Olver <solver@mac.com>"]
 
 [deps]
 AMRVW = "233ec0c9-6b8d-4766-b9a2-a16e389fc38a"
@@ -20,6 +20,9 @@ SpecialMatrices = "928aab9d-ef52-54ac-8ca1-acd7ca42c160"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 ToeplitzMatrices = "c751599d-da0a-543b-9d20-d0a503d91d24"
+
+[compat]
+LazyArrays = "2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
